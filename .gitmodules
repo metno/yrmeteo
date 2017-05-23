@@ -1,0 +1,3 @@
+[submodule "yrmeteo/weather-symbols"]
+	path = yrmeteo/weather-symbols
+	url = https://github.com/YR/weather-symbols.git
