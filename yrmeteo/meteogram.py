@@ -6,7 +6,8 @@ import matplotlib.colors
 import matplotlib.image as mplimg
 from pylab import rcParams
 import copy
-rcParams['figure.figsize'] = 11, 3
+fig_size = [11, 3]
+rcParams['figure.figsize'] = fig_size
 
 # blue = matplotlib.colors.to_hex("00b9f2")
 blue = "#00b9f2"
@@ -22,35 +23,53 @@ class Meteogram(object):
       self.title = None
       self.ylim = None
       self.debug = False
+      self.dpi = 150
 
-   def adjust_axes(self, ax=mpl.gca()):
+   def adjust_xaxis(self, ax=None, show_tick_labels=True):
+      if ax is None:
+         ax = mpl.gca()
       xlim = ax.get_xlim()
       L = xlim[1] - xlim[0]
       if L <= 5:
          ax.xaxis.set_major_locator(mpldates.DayLocator(interval=1))
          ax.xaxis.set_minor_locator(mpldates.HourLocator(byhour=range(0,24,2)))
-         ax.xaxis.set_major_formatter(mpldates.DateFormatter('\n%a %d %b %Y'))
-         ax.xaxis.set_minor_formatter(mpldates.DateFormatter('%H'))
-         ax.yaxis.set_major_locator(matplotlib.ticker.MaxNLocator(10, integer=True))
+         if show_tick_labels:
+            ax.xaxis.set_major_formatter(mpldates.DateFormatter('\n%a %d %b %Y'))
+            ax.xaxis.set_minor_formatter(mpldates.DateFormatter('%H'))
+         else:
+            ax.xaxis.set_ticklabels([])
          ax.xaxis.grid(True, which='major', color=gray, zorder=3, linestyle='-', linewidth=2)
          ax.xaxis.grid(True, which='minor', color=gray, zorder=2, linestyle='-', lw=1)
-         ax.yaxis.grid(True, which='major', color=gray, zorder=3, linestyle='-', lw=1)
       else:
          ax.xaxis.set_major_locator(mpldates.DayLocator(interval=1))
          ax.xaxis.set_minor_locator(mpldates.HourLocator(byhour=range(0,24,6)))
-         ax.xaxis.set_major_formatter(mpldates.DateFormatter('%a\n%b %d'))
-         ax.xaxis.set_minor_formatter(mpldates.DateFormatter(''))
-         ax.yaxis.set_major_locator(matplotlib.ticker.MaxNLocator(10, integer=True))
+         if show_tick_labels:
+            ax.xaxis.set_major_formatter(mpldates.DateFormatter('%a\n%b %d'))
+            ax.xaxis.set_minor_formatter(mpldates.DateFormatter(''))
+         else:
+            ax.xaxis.set_ticklabels([])
          ax.xaxis.grid(True, which='major', color=gray, zorder=3, linestyle='-', linewidth=2)
          ax.xaxis.grid(True, which='minor', color=gray, zorder=2, linestyle='-', lw=1)
+
+   def adjust_yaxis(self, ax=None, show_tick_labels=True):
+      if ax is None:
+         ax = mpl.gca()
+      xlim = ax.get_xlim()
+      L = xlim[1] - xlim[0]
+      if L <= 5:
+         ax.yaxis.set_major_locator(matplotlib.ticker.MaxNLocator(10, integer=True))
+         ax.yaxis.grid(True, which='major', color=gray, zorder=3, linestyle='-', lw=1)
+      else:
+         ax.yaxis.set_major_locator(matplotlib.ticker.MaxNLocator(10, integer=True))
          ax.yaxis.grid(True, which='major', color=gray, zorder=3, linestyle='-', lw=1)
 
 
-   def plot(self, times, temperature, precip, cloud_cover, precip_max):
+   def plot(self, times, temperature, precip, cloud_cover, precip_max, x_wind=None, y_wind=None, wind_gust=None):
       """
       Plot temperature
       """
-      ax1 = mpl.gca()
+      ax1 = mpl.gca() # fig.axes([0.125, 0.1, 0.8, 0.8])
+      ax1.set_position([0.05, 0.20, 0.9, 0.7])
       Iwarm = np.where(temperature >= 0)[0]
       Tcold = copy.deepcopy(temperature)
       Tcold[Iwarm] = np.nan
@@ -81,7 +100,8 @@ class Meteogram(object):
                else:
                   extent = [times[t]-dlt/2.0,times[t]+dlt/2.0,temperature[t]+dy/15, temperature[t]+dy/15+h/2.0]
                ax1.imshow(image, aspect="auto", extent=extent, zorder=10)
-      self.adjust_axes(ax1)
+      self.adjust_xaxis(ax1, False)
+      self.adjust_yaxis(ax1, False)
 
       # Freezing line
       ax1.plot(xlim, [0,0], '-', lw=2, color=gray)
@@ -90,15 +110,16 @@ class Meteogram(object):
       Plot precipitation
       """
       ax2 = ax1.twinx()
+      ax2.set_position(ax1.get_position())
       precip[precip < 0.1] = 0
       if precip_max is not None:
          precip_max[precip_max < 0.1] = 0
-         ax2.bar(times+0.1/24, precip_max, 0.8*dlt, color=blue, ec="white", hatch="/////", lw=0)
+         ax2.bar(times+0.1/24, precip_max, 0.95*dlt, color="white", ec=blue, hatch="//////", lw=0)
          for t in range(len(times)):
             if not np.isnan(precip_max[t]) and precip_max[t] > 0.1:
                mpl.text(times[t]+dlt/2.0, precip_max[t], "%0.1f" % precip_max[t], fontsize=6,
                      horizontalalignment="center", color="k")
-      ax2.bar(times+0.1/24, precip, 0.8*dlt, color=blue, ec=blue)
+      ax2.bar(times+0.1/24, precip, 0.95*dlt, color=blue, lw=0)
       #ax2.set_ylabel("Precipitation (mm)")
       #ax2.set_xticks([])
       lim = [0, 10]
@@ -108,14 +129,55 @@ class Meteogram(object):
       ax1.set_xlim(xlim)
       ax1.set_ylim(ylim)
       ax2.set_ylim(lim)
-      self.adjust_axes(ax2)
+      self.adjust_xaxis(ax2, False)
       for t in range(len(times)):
          if not np.isnan(precip[t]) and precip[t] > 0.1:
             mpl.text(times[t]+dlt/2.0, 0, "%0.1f" % precip[t], fontsize=6,
                   horizontalalignment="center", color="k")
+      """
+      Plot winds
+      """
+      if x_wind is not None:
+         pos = ax1.get_position()
+         ax_wind = mpl.axes([pos.x0, 0.05, pos.x1-pos.x0, 0.12])
+         xlim = ax1.get_xlim()
+         ax_wind.set_xlim(xlim)
+         # s = (xlim[1] - xlim[0]) / fig_size[0] * (pos.x1-pos.x0) * (fig_size[1] * (0.05)) * 2 * 12
+         # Don't deal with scale here. Just assume the axis is set up with the right aspect.
+         max_y = 1.0 / 24 #(xlim[1] - xlim[0]) / fig_size[0] * (pos.x1-pos.x0) * (fig_size[1] * (0.05)) * 2 * 12
+         ylim = [-max_y*2, max_y*1.2]
+         ax_wind.set_ylim(ylim)
+         for i in range(1, len(times), 2):
+            time = times[i]
+            speed = np.sqrt(x_wind[i]**2 + y_wind[i]**2)
+            # dir = np.arctan(x_wind[i],y_wind[i]**2)
+            x_scale = max_y
+            y_scale = max_y
+            print max_y
+            dx = x_wind[i] / speed * x_scale
+            dy = y_wind[i] / speed * y_scale
+            hl = 0.0125
+            # Arrow puts the head at the end of the line, so rescale the line to be slightly shorter
+            hlx = (2.0/24 - hl)/(2.0/24)
+            ax_wind.arrow(time - dx, -dy, 2*dx*hlx, 2*dy*hlx, head_width=0.01, head_length=hl, fc='k', ec='k', zorder=10)
+            # ax_wind.arrow(time - dx, -dy, 2*dx-hl, 2*dy-hl, head_width=0.01, head_length=0, fc='k', ec='k', zorder=10)
+            # ax_wind.plot([time - dx, time + dx], [-dy, dy], '.-', lw=1)
+            wind = None
+            print dx, dy
+            if not np.isnan(x_wind[i]):
+               wind = np.sqrt(x_wind[i]**2 + y_wind[i]**2)
+            if wind_gust is not None and not np.isnan(wind_gust[i]):
+               text = "%1.0f-%1.0f" % (wind, wind_gust[i])
+               print text
+            else:
+               text = "%0.1f" % wind
+            ax_wind.text(times[i], ylim[0]*0.95, text, fontsize=6, horizontalalignment="center", color="k", verticalalignment="bottom")
+
+            self.adjust_xaxis(ax_wind)
+            ax_wind.set_yticks([])
 
       # Remove the last date label
-      ticks = ax1.xaxis.get_major_ticks()
+      ticks = ax_wind.xaxis.get_major_ticks()
       for n in range(0, len(ticks)):
          tick = ticks[n]
          # Don't show the last label if it is unlikely to fit, because there aren't enough hours in
@@ -126,13 +188,13 @@ class Meteogram(object):
             tick.label1.set_horizontalalignment('left')
       ax2.set_yticks([])
 
-      labels = ["%d$^o$" % item for item in ax1.get_yticks()]
+      labels = [u"%d\u00B0" % item for item in ax1.get_yticks()]
       ax1.set_yticklabels(labels)
 
       if self.title is not None:
          mpl.title(self.title)
 
-      mpl.gcf().subplots_adjust(bottom=0.15, top=0.9, left=0.05, right=0.95)
+      # mpl.gcf().subplots_adjust(bottom=0.15, top=0.9, left=0.05, right=0.95)
       if self.ylim is not None:
          ax1.set_ylim(self.ylim)
 
@@ -140,4 +202,4 @@ class Meteogram(object):
       mpl.show()
 
    def save(self, filename):
-      mpl.savefig(filename, bbox_inches='tight')
+      mpl.savefig(filename, bbox_inches='tight', dpi=self.dpi)

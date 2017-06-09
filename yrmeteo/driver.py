@@ -18,7 +18,7 @@ def run(argv):
    parser.add_argument('-i', type=int, default=None, help="x-axis index")
    parser.add_argument('-j', type=int, default=None, help="y-axis index")
    parser.add_argument('-title', type=str, help="Figure title")
-   parser.add_argument('-hood', default=0, type=int, help="Neighbourhood size (in grid points)")
+   parser.add_argument('-hood', default=0, type=int, help="Neighbourhood radius (in grid points)")
    parser.add_argument('-ylim', type=yrmeteo.util.parse_numbers, help="Y-axis limits for temperature (lower,upper)")
    parser.add_argument('-members', type=yrmeteo.util.parse_ints, help="Which ensemble members indices? E.g. 1:5,7,9.")
    parser.add_argument('-tz', type=int, default=0, help="Timezone (0 UTC, 1 CET)")
@@ -63,11 +63,11 @@ def run(argv):
    times = np.array([yrmeteo.util.unixtime_to_datenum(time) for time in times])
    times = times+1.0*args.tz/24
 
-   [t2m, precip, cloud_cover, precip_max] = method.get(input, I, J)
+   [t2m, precip, cloud_cover, precip_max, x_wind, y_wind, wind_gust] = method.get(input, I, J)
 
    meteo.title = args.title
    meteo.ylim = args.ylim
-   meteo.plot(times, t2m, precip, cloud_cover, precip_max)
+   meteo.plot(times, t2m, precip, cloud_cover, precip_max, x_wind, y_wind, wind_gust)
    if args.output_filename:
       meteo.save(args.output_filename)
    else:

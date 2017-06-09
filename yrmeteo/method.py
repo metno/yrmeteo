@@ -80,7 +80,20 @@ class Simple(Method):
       # Instead just repeat the temperature for all neighbourhood points
       temperature = np.repeat(temperature, precip.shape[1]/temperature.shape[1], axis=1)
 
-      [temperature0, precip0, cloud_cover0, precip_max0] = self.calc(temperature, precip, cloud_cover)
+      x_wind = input.get(I, J, "x_wind_10m", 0, self.members)
+      x_wind = x_wind[0:-1,:]
+      x_wind = np.repeat(x_wind, precip.shape[1]/x_wind.shape[1], axis=1)
+      y_wind = input.get(I, J, "y_wind_10m", 0, self.members)
+      y_wind = y_wind[0:-1,:]
+      y_wind = np.repeat(y_wind, precip.shape[1]/y_wind.shape[1], axis=1)
+
+      x_gust = input.get(I, J, "x_wind_gust_10m", 0, self.members)
+      y_gust = input.get(I, J, "y_wind_gust_10m", 0, self.members)
+      wind_gust = np.sqrt(x_gust**2 + y_gust**2)
+      wind_gust = wind_gust[0:-1,:]
+      wind_gust = np.repeat(wind_gust, precip.shape[1]/wind_gust.shape[1], axis=1)
+
+      [temperature0, precip0, cloud_cover0, precip_max0, x_wind0, y_wind0, wind_gust0] = self.calc(temperature, precip, cloud_cover, x_wind, y_wind, wind_gust)
       for t in range(N):
          if self.debug:
             print "Timestep: %d" % t
@@ -92,9 +105,9 @@ class Simple(Method):
             print "   " + " ".join("%0.1f" % q for q in cloud_cover[t,:])
             print "---------------------------"
 
-      return [temperature0, precip0, cloud_cover0, precip_max0]
+      return [temperature0, precip0, cloud_cover0, precip_max0, x_wind0, y_wind0, wind_gust0]
 
-   def calc(self, temperature, precip, cloud_cover):
+   def calc(self, temperature, precip, cloud_cover, x_wind=None, y_wind=None, wind_gust=None):
       """
       Turn a multi-variate ensemble into deterministic values
 
@@ -119,19 +132,32 @@ class Func(Simple):
 
    Implement func() to make the class work.
    """
-   def calc(self, temperature, precip, cloud_cover):
+   def calc(self, temperature, precip, cloud_cover, x_wind=None, y_wind=None, wind_gust=None):
       T = temperature.shape[0]
       t0 = np.zeros(T, float)
       p0 = np.zeros(T, float)
       c0 = np.zeros(T, float)
       pmax0 = np.zeros(T, float)
+      x0 = y0 = g0 = None
+      if x_wind is not None:
+         x0 = np.zeros(T, float)
+      if y_wind is not None:
+         y0 = np.zeros(T, float)
+      if wind_gust is not None:
+         g0 = np.zeros(T, float)
       for t in range(T):
          t0[t] = self.func(temperature[t, :])
          p0[t] = self.func(precip[t, :])
          c0[t] = self.func(cloud_cover[t, :])
          pmax0[t] = yrmeteo.util.nanpercentile(precip[t, :], 80)
+         if x_wind is not None:
+            x0[t] = self.func(x_wind[t, :])
+         if y_wind is not None:
+            y0[t] = self.func(y_wind[t, :])
+         if wind_gust is not None:
+            g0[t] = self.func(wind_gust[t, :])
 
-      return [t0, p0, c0, pmax0]
+      return [t0, p0, c0, pmax0, x0, y0, g0]
 
    def func(self, ar):
       """
@@ -159,7 +185,7 @@ class Consensus(Simple):
    """
    Compute symbol, then take the median of those members with the most common symbol
    """
-   def calc(self, temperature, precip, cloud_cover):
+   def calc(self, temperature, precip, cloud_cover, x_wind=None, y_wind=None, wind_gust=None):
       T = temperature.shape[0]
       M = temperature.shape[1]
       t0 = np.zeros(T, float)
@@ -184,7 +210,7 @@ class Consensus(Simple):
 
 
 class ConsensusPrecip(Simple):
-   def calc(self, temperature, precip, cloud_cover):
+   def calc(self, temperature, precip, cloud_cover, x_wind=None, y_wind=None, wind_gust=None):
       """
       Find the most common number of drops (in symbol) and take the median of the
       members with this number of drops.
@@ -222,7 +248,7 @@ class BestMember(Simple):
    def __init__(self, window_size=6):
       self.window_size = window_size
 
-   def calc(self, temperature, precip, cloud_cover):
+   def calc(self, temperature, precip, cloud_cover, x_wind=None, y_wind=None, wind_gust=None):
       T = temperature.shape[0]
       M = temperature.shape[1]
       t0 = np.zeros(T, float)
