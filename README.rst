@@ -12,6 +12,12 @@ ensemble. The forecasts are visualized using an imitation of the short-range met
 Installation on ubuntu
 ----------------------
 
+Clone the repository into an appropriate folder:
+.. code-block:: bash
+
+  git clone https://github.com/metno/yrmeteo.git
+  cd yrmeteo
+  
 Load the Yr weather-symbols, but running:
 
 .. code-block:: bash
