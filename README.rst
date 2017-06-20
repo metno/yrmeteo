@@ -13,6 +13,7 @@ Installation on ubuntu
 ----------------------
 
 Clone the repository into an appropriate folder:
+
 .. code-block:: bash
 
   git clone https://github.com/metno/yrmeteo.git
