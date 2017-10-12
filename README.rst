@@ -24,6 +24,7 @@ Load the Yr weather-symbols, but running:
 .. code-block:: bash
 
   git submodule init
+  git submodule update
 
 Install the required pacakges:
 
