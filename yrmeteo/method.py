@@ -33,6 +33,7 @@ class Method(object):
       self.hood = 0
       self.members = None
       self.debug = False
+      self.extra_variables = []
 
    def get(self, input, I, J):
       """
@@ -80,18 +81,21 @@ class Simple(Method):
       # Instead just repeat the temperature for all neighbourhood points
       temperature = np.repeat(temperature, precip.shape[1]/temperature.shape[1], axis=1)
 
-      x_wind = input.get(I, J, "x_wind_10m", 0, self.members)
-      x_wind = x_wind[0:-1,:]
-      x_wind = np.repeat(x_wind, precip.shape[1]/x_wind.shape[1], axis=1)
-      y_wind = input.get(I, J, "y_wind_10m", 0, self.members)
-      y_wind = y_wind[0:-1,:]
-      y_wind = np.repeat(y_wind, precip.shape[1]/y_wind.shape[1], axis=1)
-
-      x_gust = input.get(I, J, "x_wind_gust_10m", 0, self.members)
-      y_gust = input.get(I, J, "y_wind_gust_10m", 0, self.members)
-      wind_gust = np.sqrt(x_gust**2 + y_gust**2)
-      wind_gust = wind_gust[0:-1,:]
-      wind_gust = np.repeat(wind_gust, precip.shape[1]/wind_gust.shape[1], axis=1)
+      x_wind = y_wind = wind_gust = None
+      if "x_wind" in self.extra_variables:
+         x_wind = input.get(I, J, "x_wind_10m", 0, self.members)
+         x_wind = x_wind[0:-1,:]
+         x_wind = np.repeat(x_wind, precip.shape[1]/x_wind.shape[1], axis=1)
+      if "y_wind" in self.extra_variables:
+         y_wind = input.get(I, J, "y_wind_10m", 0, self.members)
+         y_wind = y_wind[0:-1,:]
+         y_wind = np.repeat(y_wind, precip.shape[1]/y_wind.shape[1], axis=1)
+      if "wind_gust" in self.extra_variables:
+         x_gust = input.get(I, J, "x_wind_gust_10m", 0, self.members)
+         y_gust = input.get(I, J, "y_wind_gust_10m", 0, self.members)
+         wind_gust = np.sqrt(x_gust**2 + y_gust**2)
+         wind_gust = wind_gust[0:-1,:]
+         wind_gust = np.repeat(wind_gust, precip.shape[1]/wind_gust.shape[1], axis=1)
 
       [temperature0, precip0, cloud_cover0, precip_max0, x_wind0, y_wind0, wind_gust0] = self.calc(temperature, precip, cloud_cover, x_wind, y_wind, wind_gust)
       for t in range(N):
@@ -315,12 +319,13 @@ class IvarsMethod(Simple):
       temperature = input.get(I, J, "air_temperature_2m", 0, control_member) - 273.15
       temperature = temperature[0:-1,:]
 
-      if 0:
+      x_wind = y_wind = wind_gust = None
+      if "wind" in self.extra_variables:
          x_wind = input.get(I, J, "x_wind_10m", 0, self.members)
          x_wind = x_wind[0:-1,:]
          y_wind = input.get(I, J, "y_wind_10m", 0, self.members)
          y_wind = y_wind[0:-1,:]
-
+      if "gust" in self.extra_variables:
          x_gust = input.get(I, J, "x_wind_gust_10m", 0, self.members)
          y_gust = input.get(I, J, "y_wind_gust_10m", 0, self.members)
          wind_gust = np.sqrt(x_gust**2 + y_gust**2)
