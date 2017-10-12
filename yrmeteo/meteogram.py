@@ -176,16 +176,16 @@ class Meteogram(object):
             self.adjust_xaxis(ax_wind)
             ax_wind.set_yticks([])
 
-      # Remove the last date label
-      ticks = ax_wind.xaxis.get_major_ticks()
-      for n in range(0, len(ticks)):
-         tick = ticks[n]
-         # Don't show the last label if it is unlikely to fit, because there aren't enough hours in
-         # that day in the graph
-         if n == len(ticks)-1 and (xlim[1] % 1) <= 0.42:
-            tick.label1.set_visible(False)
-         else:
-            tick.label1.set_horizontalalignment('left')
+         # Remove the last date label
+         ticks = ax_wind.xaxis.get_major_ticks()
+         for n in range(0, len(ticks)):
+            tick = ticks[n]
+            # Don't show the last label if it is unlikely to fit, because there aren't enough hours in
+            # that day in the graph
+            if n == len(ticks)-1 and (xlim[1] % 1) <= 0.42:
+               tick.label1.set_visible(False)
+            else:
+               tick.label1.set_horizontalalignment('left')
       ax2.set_yticks([])
 
       labels = [u"%d\u00B0" % item for item in ax1.get_yticks()]
