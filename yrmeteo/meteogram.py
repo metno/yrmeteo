@@ -65,6 +65,7 @@ class Meteogram(object):
 
 
    def plot(self, times, data):
+      show_wind = "x_wind" in data and "y_wind" in data
       """
       Plot temperature
       """
@@ -133,15 +134,17 @@ class Meteogram(object):
       ax1.set_xlim(xlim)
       ax1.set_ylim(ylim)
       ax2.set_ylim(lim)
-      self.adjust_xaxis(ax2, False)
+      self.adjust_xaxis(ax2, not show_wind)
       for t in range(len(times)):
          if not np.isnan(precip[t]) and precip[t] > 0.1:
             mpl.text(times[t]+dlt/2.0, 0, "%0.1f" % precip[t], fontsize=6,
                   horizontalalignment="center", color="k")
+      axlast = ax2
+
       """
       Plot winds
       """
-      if "x_wind" in data and "y_wind" in data:
+      if show_wind:
          x_wind = data["x_wind"]
          y_wind = data["y_wind"]
          pos = ax1.get_position()
@@ -159,7 +162,6 @@ class Meteogram(object):
             # dir = np.arctan(x_wind[i],y_wind[i]**2)
             x_scale = max_y
             y_scale = max_y
-            print max_y
             dx = x_wind[i] / speed * x_scale
             dy = y_wind[i] / speed * y_scale
             hl = 0.0125
@@ -169,29 +171,28 @@ class Meteogram(object):
             # ax_wind.arrow(time - dx, -dy, 2*dx-hl, 2*dy-hl, head_width=0.01, head_length=0, fc='k', ec='k', zorder=10)
             # ax_wind.plot([time - dx, time + dx], [-dy, dy], '.-', lw=1)
             wind = None
-            print dx, dy
             if not np.isnan(x_wind[i]):
                wind = np.sqrt(x_wind[i]**2 + y_wind[i]**2)
             if "gust" in data and not np.isnan(data["gust"][i]):
                text = "%1.0f-%1.0f" % (wind, data["gust"][i])
-               print text
             else:
                text = "%0.1f" % wind
             ax_wind.text(times[i], ylim[0]*0.95, text, fontsize=6, horizontalalignment="center", color="k", verticalalignment="bottom")
 
             self.adjust_xaxis(ax_wind)
             ax_wind.set_yticks([])
+         axlast = ax_wind
 
-         # Remove the last date label
-         ticks = ax_wind.xaxis.get_major_ticks()
-         for n in range(0, len(ticks)):
-            tick = ticks[n]
-            # Don't show the last label if it is unlikely to fit, because there aren't enough hours in
-            # that day in the graph
-            if n == len(ticks)-1 and (xlim[1] % 1) <= 0.42:
-               tick.label1.set_visible(False)
-            else:
-               tick.label1.set_horizontalalignment('left')
+      # Remove the last date label
+      ticks = axlast.xaxis.get_major_ticks()
+      for n in range(0, len(ticks)):
+         tick = ticks[n]
+         # Don't show the last label if it is unlikely to fit, because there aren't enough hours in
+         # that day in the graph
+         if n == len(ticks)-1 and (xlim[1] % 1) <= 0.42:
+            tick.label1.set_visible(False)
+         else:
+            tick.label1.set_horizontalalignment('left')
       ax2.set_yticks([])
 
       labels = [u"%d\u00B0" % item for item in ax1.get_yticks()]
