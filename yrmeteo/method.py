@@ -24,7 +24,7 @@ def get(name):
       if(name == method[0].lower()):
          m = method[1]()
    if m is None:
-      yrmeteo.error("Could not find method with name '%s'" % name)
+      yrmeteo.util.error("Could not find method with name '%s'" % name)
    return m
 
 
