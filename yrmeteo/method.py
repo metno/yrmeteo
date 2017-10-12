@@ -312,6 +312,13 @@ class IvarsMethod(Simple):
       if self.members is not None:
          control_member = [self.members[0]]
 
+      """ Precipiptation
+      Use the control, except when the POP is less than 35% (Use 0 mm) or above 45% (use ensemble
+      mean).
+
+      When POP > 45% and contorl is 0, use the 60th percentile of the ensemble
+      When POP < 35% and control is > 0, use 0 mm
+      """
       precip_ens = input.get(I, J, "precipitation_amount_acc", self.hood, self.members)
       precip_ens = precip_ens[1:,:] - precip_ens[:-1,:]
       T = precip_ens.shape[0]
@@ -322,25 +329,32 @@ class IvarsMethod(Simple):
       pop_ens = np.mean(precip_ens > self.precip_threshold, axis=1)
       pop_control = np.mean(precip_control > self.precip_threshold, axis=1)
 
-      precip = precip_control[:, 0]
-      precip[pop_ens < 0.35] = 0
-      precip_ens_mean = np.mean(precip_ens, axis=1)
-      precip[pop_ens > 0.45] = precip_ens_mean[pop_ens > 0.45]
+      precip = np.percentile(precip_control, 50, axis=1)
+      Irm_precip = np.where((pop_ens < 0.35) & (precip > 0))[0]
+      Iadd_precip = np.where((pop_control > 0.4) & (precip <= 0.1))[0]
+      precip[Iadd_precip] = np.percentile(precip_control, 60, axis=1)
+      precip[Irm_precip] = 0
+      precip_ens_det = np.percentile(precip_ens, 55, axis=1)
+      precip[Iadd_precip] = precip_ens_det[Iadd_precip]
 
       data["precip"] = precip
-      data["precip_max"] = np.max(precip_ens, axis=1)
+      # Potentually only use precip_ens max if we don't use the control
+      data["precip_max"] = np.percentile(precip_ens, 80, axis=1)
 
+      """ Cloud cover
+      Use the cloud cover from the ensemble when adding precipitation
+      """
       cloud_cover_ens = input.get(I, J, "cloud_area_fraction", self.hood, self.members)
       cloud_cover_ens = cloud_cover_ens[0:-1,:]
       cloud_cover_control = input.get(I, J, "cloud_area_fraction", self.hood, control_member)
       cloud_cover_control = cloud_cover_control[0:-1,:]
 
       cloud_cover = cloud_cover_control[:, 0]
-      cloud_cover[pop_ens < 0.35] = 0
-      cloud_cover_mean = np.mean(cloud_cover_ens, axis=1)
-      cloud_cover[pop_ens > 0.45] = cloud_cover_mean[pop_ens > 0.45]
+      # cloud_cover[Irm_precip] # Open question
+      cloud_cover[Iadd_precip] = np.mean(cloud_cover_ens, axis=1)
       data["cloud_cover"] = cloud_cover
 
+      """ Temperature: Use the control """
       temperature_control = input.get(I, J, "air_temperature_2m", 0, control_member) - 273.15
       data["temperature"] = temperature_control[0:-1,0]
 
