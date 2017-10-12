@@ -302,8 +302,8 @@ class IvarsMethod(Simple):
    Something epic
    """
    def __init__(self):
-      self.min_members = 10  # Require at least this number of members before reverting to control
-      self.precip_threshold = 0.5
+      self.min_members = 5  # Require at least this number of members before reverting to control
+      self.precip_threshold = 0.1
 
    def get(self, input, I, J):
       data = dict()
@@ -326,20 +326,28 @@ class IvarsMethod(Simple):
       precip_control = input.get(I, J, "precipitation_amount_acc", self.hood, control_member)
       precip_control = precip_control[1:,:] - precip_control[:-1,:]
 
-      pop_ens = np.mean(precip_ens > self.precip_threshold, axis=1)
-      pop_control = np.mean(precip_control > self.precip_threshold, axis=1)
+      pop_ens = np.mean(precip_ens >= self.precip_threshold, axis=1)
+      pop_control = np.mean(precip_control >= self.precip_threshold, axis=1)
 
       precip = np.percentile(precip_control, 50, axis=1)
-      Irm_precip = np.where((pop_ens < 0.35) & (precip > 0))[0]
-      Iadd_precip = np.where((pop_control > 0.4) & (precip <= 0.1))[0]
+      hood_size = (self.hood * 2 + 1) * (self.hood * 2 + 1)
+      num_members = np.sum(np.isnan(precip_ens) == 0, axis=1) / hood_size
+      Irm_precip = np.where((pop_ens < 0.35) & (precip > 0.1) & (num_members >= self.min_members))[0]
+      Iadd_precip = np.where((pop_ens > 0.45) & (precip <= 0.1) & (num_members >= self.min_members))[0]
+      print "Removing: ", Irm_precip
+      print "Adding: ", Iadd_precip
+
+      # Make adjustments
       precip[Iadd_precip] = np.percentile(precip_control, 60, axis=1)
       precip[Irm_precip] = 0
       precip_ens_det = np.percentile(precip_ens, 55, axis=1)
       precip[Iadd_precip] = precip_ens_det[Iadd_precip]
 
       data["precip"] = precip
-      # Potentually only use precip_ens max if we don't use the control
-      data["precip_max"] = np.percentile(precip_ens, 80, axis=1)
+      # Only use precip_ens max if we don't use the control
+      precip_max = np.percentile(precip_control, 80, axis=1)
+      precip_max[Iadd_precip] = np.percentile(precip_ens[Iadd_precip], 80, axis=1)
+      data["precip_max"] = precip_max
 
       """ Cloud cover
       Use the cloud cover from the ensemble when adding precipitation
@@ -349,7 +357,7 @@ class IvarsMethod(Simple):
       cloud_cover_control = input.get(I, J, "cloud_area_fraction", self.hood, control_member)
       cloud_cover_control = cloud_cover_control[0:-1,:]
 
-      cloud_cover = cloud_cover_control[:, 0]
+      cloud_cover = np.mean(cloud_cover_control, axis=1)
       # cloud_cover[Irm_precip] # Open question
       cloud_cover[Iadd_precip] = np.mean(cloud_cover_ens, axis=1)
       data["cloud_cover"] = cloud_cover
