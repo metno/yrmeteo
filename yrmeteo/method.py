@@ -275,3 +275,87 @@ class BestMember(Simple):
          pmax0[t] = yrmeteo.util.nanpercentile(precip[t,:], 80)
 
       return [t0, p0, c0, pmax0]
+
+
+class IvarsMethod(Simple):
+   """
+   Something epic
+   """
+   def __init__(self):
+      self.min_members = 10  # Require at least this number of members before reverting to control
+      self.precip_threshold = 0.5
+
+   def get(self, input, I, J):
+      assert(self.members is None or len(self.members) > 1)
+      precip = input.get(I, J, "precipitation_amount_acc", self.hood, self.members)
+      precip = precip[1:,:] - precip[:-1,:]
+      T = precip.shape[0]
+
+      control_member = [0]
+      if self.members is not None:
+         control_member = [self.members[0]]
+      precip_control = input.get(I, J, "precipitation_amount_acc", self.hood, control_member)
+      precip_control = precip_control[1:,:] - precip_control[:-1,:]
+
+      pop_ens = np.mean(precip > self.precip_threshold, axis=1)
+      pop_control = np.mean(precip_control > self.precip_threshold, axis=1)
+
+      x_wind = None
+      y_wind = None
+      cloud_cover = None
+      temperature = None
+      wind_gust = None
+
+      cloud_cover = input.get(I, J, "cloud_area_fraction", self.hood, self.members)
+      cloud_cover = cloud_cover[0:-1,:]
+
+      cloud_cover_control = input.get(I, J, "cloud_area_fraction", self.hood, control_member)
+      cloud_cover_control = cloud_cover_control[0:-1,:]
+
+      temperature = input.get(I, J, "air_temperature_2m", 0, control_member) - 273.15
+      temperature = temperature[0:-1,:]
+
+      if 0:
+         x_wind = input.get(I, J, "x_wind_10m", 0, self.members)
+         x_wind = x_wind[0:-1,:]
+         y_wind = input.get(I, J, "y_wind_10m", 0, self.members)
+         y_wind = y_wind[0:-1,:]
+
+         x_gust = input.get(I, J, "x_wind_gust_10m", 0, self.members)
+         y_gust = input.get(I, J, "y_wind_gust_10m", 0, self.members)
+         wind_gust = np.sqrt(x_gust**2 + y_gust**2)
+         wind_gust = wind_gust[0:-1,:]
+         wind_gust = np.mean(wind_gust, axis=1)
+
+      t0 = temperature[:, 0]
+      p0 = precip_control[:, 0]
+      p0[pop_ens < 0.35] = 0
+      precip_mean = np.mean(precip, axis=1)
+      p0[pop_ens > 0.45] = precip_mean[pop_ens > 0.45]
+
+      c0 = cloud_cover_control[:, 0]
+      c0[pop_ens < 0.35] = 0
+      cloud_cover_mean = np.mean(cloud_cover, axis=1)
+      c0[pop_ens > 0.45] = cloud_cover_mean[pop_ens > 0.45]
+
+      pmax0 = np.max(precip, axis=1)
+      x0 = y0 = g0 = None
+      if x_wind is not None:
+         x0 = np.zeros(T, float)
+      if y_wind is not None:
+         y0 = np.zeros(T, float)
+      if wind_gust is not None:
+         g0 = np.zeros(T, float)
+
+      for t in range(T):
+         if self.debug:
+            print "Timestep: %d" % t
+            print "Temperature: %0.1f" % temperature0[t]
+            print "   " + " ".join("%0.1f" % q for q in temperature[t,:])
+            print "Precip: %0.1f" % precip0[t]
+            print "   " + " ".join("%0.1f" % q for q in precip[t,:])
+            print "Clouds: %0.1f" % cloud_cover0[t]
+            print "   " + " ".join("%0.1f" % q for q in cloud_cover[t,:])
+            print "---------------------------"
+
+      return [t0, p0, c0, pmax0, x0, y0, g0]
