@@ -64,10 +64,11 @@ class Meteogram(object):
          ax.yaxis.grid(True, which='major', color=gray, zorder=3, linestyle='-', lw=1)
 
 
-   def plot(self, times, temperature, precip, cloud_cover, precip_max, x_wind=None, y_wind=None, wind_gust=None):
+   def plot(self, times, data):
       """
       Plot temperature
       """
+      temperature = data["temperature"]
       ax1 = mpl.gca() # fig.axes([0.125, 0.1, 0.8, 0.8])
       ax1.set_position([0.05, 0.20, 0.9, 0.7])
       Iwarm = np.where(temperature >= 0)[0]
@@ -89,6 +90,9 @@ class Meteogram(object):
       ylim = [ylim[0], ylim[1] + dy/5.0]
       dy = ylim[1] - ylim[0]
       dlt = times[1]-times[0]
+      precip = data["precip"]
+      precip_max = data["precip_max"]
+      cloud_cover = data["cloud_cover"]
       for t in range(len(times)):
          if dlt >= 2.0/24 or (times[t] * 24) % 2 == 1:
             if not np.isnan(temperature[t]) and not np.isnan(precip[t]) and not np.isnan(cloud_cover[t]):
@@ -137,7 +141,9 @@ class Meteogram(object):
       """
       Plot winds
       """
-      if x_wind is not None:
+      if "x_wind" in data and "y_wind" in data:
+         x_wind = data["x_wind"]
+         y_wind = data["y_wind"]
          pos = ax1.get_position()
          ax_wind = mpl.axes([pos.x0, 0.05, pos.x1-pos.x0, 0.12])
          xlim = ax1.get_xlim()
@@ -166,8 +172,8 @@ class Meteogram(object):
             print dx, dy
             if not np.isnan(x_wind[i]):
                wind = np.sqrt(x_wind[i]**2 + y_wind[i]**2)
-            if wind_gust is not None and not np.isnan(wind_gust[i]):
-               text = "%1.0f-%1.0f" % (wind, wind_gust[i])
+            if "gust" in data and not np.isnan(data["gust"][i]):
+               text = "%1.0f-%1.0f" % (wind, data["gust"][i])
                print text
             else:
                text = "%0.1f" % wind

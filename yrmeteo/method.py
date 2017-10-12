@@ -82,34 +82,24 @@ class Simple(Method):
       temperature = np.repeat(temperature, precip.shape[1]/temperature.shape[1], axis=1)
 
       x_wind = y_wind = wind_gust = None
-      if "x_wind" in self.extra_variables:
+      if "wind" in self.extra_variables:
          x_wind = input.get(I, J, "x_wind_10m", 0, self.members)
          x_wind = x_wind[0:-1,:]
          x_wind = np.repeat(x_wind, precip.shape[1]/x_wind.shape[1], axis=1)
-      if "y_wind" in self.extra_variables:
+      if "wind" in self.extra_variables:
          y_wind = input.get(I, J, "y_wind_10m", 0, self.members)
          y_wind = y_wind[0:-1,:]
          y_wind = np.repeat(y_wind, precip.shape[1]/y_wind.shape[1], axis=1)
-      if "wind_gust" in self.extra_variables:
+      if "gust" in self.extra_variables:
          x_gust = input.get(I, J, "x_wind_gust_10m", 0, self.members)
          y_gust = input.get(I, J, "y_wind_gust_10m", 0, self.members)
          wind_gust = np.sqrt(x_gust**2 + y_gust**2)
          wind_gust = wind_gust[0:-1,:]
          wind_gust = np.repeat(wind_gust, precip.shape[1]/wind_gust.shape[1], axis=1)
 
-      [temperature0, precip0, cloud_cover0, precip_max0, x_wind0, y_wind0, wind_gust0] = self.calc(temperature, precip, cloud_cover, x_wind, y_wind, wind_gust)
-      for t in range(N):
-         if self.debug:
-            print "Timestep: %d" % t
-            print "Temperature: %0.1f" % temperature0[t]
-            print "   " + " ".join("%0.1f" % q for q in temperature[t,:])
-            print "Precip: %0.1f" % precip0[t]
-            print "   " + " ".join("%0.1f" % q for q in precip[t,:])
-            print "Clouds: %0.1f" % cloud_cover0[t]
-            print "   " + " ".join("%0.1f" % q for q in cloud_cover[t,:])
-            print "---------------------------"
+      data = self.calc(temperature, precip, cloud_cover, x_wind, y_wind, wind_gust)
 
-      return [temperature0, precip0, cloud_cover0, precip_max0, x_wind0, y_wind0, wind_gust0]
+      return data
 
    def calc(self, temperature, precip, cloud_cover, x_wind=None, y_wind=None, wind_gust=None):
       """
@@ -122,11 +112,9 @@ class Simple(Method):
          cloud_cover: cloud area fraction (between 0 and 1)
 
       Returns:
-         The following are 1D numpy arrays (time):
-         temperature:
-         precip:
-         cloud_cover:
-         precip_max: Upper limit of precipitation
+         dict(str -> np.array): A dictionary with variable name to array of vaues
+            Should contain these keys: temperature, precip, cloud_cover, precip_max
+            Optionally include: x_wind, y_wind, wind_gust
       """
       raise NotImplementedError()
 
@@ -161,7 +149,19 @@ class Func(Simple):
          if wind_gust is not None:
             g0[t] = self.func(wind_gust[t, :])
 
-      return [t0, p0, c0, pmax0, x0, y0, g0]
+      data = dict()
+      data["temperature"] = t0
+      data["precip"] = p0
+      data["cloud_cover"] = c0
+      data["precip_max"] = pmax0
+      if x0 is not None:
+         data["x_wind"] = x0
+      if y0 is not None:
+         data["y_wind"] = y0
+      if g0 is not None:
+         data["wind_gust"] = g0
+
+      return data
 
    def func(self, ar):
       """
@@ -209,8 +209,13 @@ class Consensus(Simple):
          p0[t] = np.nanmedian(precip[t,I])
          c0[t] = np.nanmedian(cloud_cover[t,I])
          pmax0[t] = yrmeteo.util.nanpercentile(precip[t,I], 80)
+      data = dict()
+      data["temperature"] = t0
+      data["precip"] = p0
+      data["cloud_cover"] = c0
+      data["precip_max"] = pmax0
 
-      return [t0, p0, c0, pmax0]
+      return data
 
 
 class ConsensusPrecip(Simple):
@@ -242,7 +247,13 @@ class ConsensusPrecip(Simple):
          c0[t] = np.nanmedian(cloud_cover[t, I])
          pmax0[t] = yrmeteo.util.nanpercentile(precip[t, I], 80)
 
-      return [t0, p0, c0, pmax0]
+      data = dict()
+      data["temperature"] = t0
+      data["precip"] = p0
+      data["cloud_cover"] = c0
+      data["precip_max"] = pmax0
+
+      return data
 
 
 class BestMember(Simple):
@@ -278,7 +289,13 @@ class BestMember(Simple):
          c0[t] = cloud_cover[t,I]
          pmax0[t] = yrmeteo.util.nanpercentile(precip[t,:], 80)
 
-      return [t0, p0, c0, pmax0]
+      data = dict()
+      data["temperature"] = t0
+      data["precip"] = p0
+      data["cloud_cover"] = c0
+      data["precip_max"] = pmax0
+
+      return data
 
 
 class IvarsMethod(Simple):
@@ -363,4 +380,16 @@ class IvarsMethod(Simple):
             print "   " + " ".join("%0.1f" % q for q in cloud_cover[t,:])
             print "---------------------------"
 
-      return [t0, p0, c0, pmax0, x0, y0, g0]
+      data = dict()
+      data["temperature"] = t0
+      data["precip"] = p0
+      data["cloud_cover"] = c0
+      data["precip_max"] = pmax0
+      if x0 is not None:
+         data["x_wind"] = x0
+      if y0 is not None:
+         data["y_wind"] = y0
+      if g0 is not None:
+         data["wind_gust"] = g0
+
+      return data

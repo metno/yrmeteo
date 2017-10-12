@@ -45,7 +45,8 @@ def run(argv):
    method.hood = args.hood
    method.members = args.members
    method.debug = args.debug
-   method.extra_variables = args.variables
+   if args.variables is not None:
+      method.extra_variables = args.variables.split(',')
    meteo = yrmeteo.meteogram.Meteogram()
    meteo.debug = args.debug
 
@@ -64,11 +65,11 @@ def run(argv):
    times = np.array([yrmeteo.util.unixtime_to_datenum(time) for time in times])
    times = times+1.0*args.tz/24
 
-   [t2m, precip, cloud_cover, precip_max, x_wind, y_wind, wind_gust] = method.get(input, I, J)
+   data = method.get(input, I, J)
 
    meteo.title = args.title
    meteo.ylim = args.ylim
-   meteo.plot(times, t2m, precip, cloud_cover, precip_max, x_wind, y_wind, wind_gust)
+   meteo.plot(times, data)
    if args.output_filename:
       meteo.save(args.output_filename)
    else:
