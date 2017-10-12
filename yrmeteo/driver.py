@@ -24,7 +24,7 @@ def run(argv):
    parser.add_argument('-tz', type=int, default=0, help="Timezone (0 UTC, 1 CET)")
    parser.add_argument('--debug', help="Show debug information?", action="store_true")
    parser.add_argument('--version', action="version", version=yrmeteo.version.__version__)
-   parser.add_argument('-v', help="Add extra variables (wind, gust)", dest="variables")
+   parser.add_argument('--show_wind', help="Show wind speed and direction", action="store_true", dest="show_wind")
 
    if len(sys.argv) < 2:
       parser.print_help()
@@ -45,8 +45,7 @@ def run(argv):
    method.hood = args.hood
    method.members = args.members
    method.debug = args.debug
-   if args.variables is not None:
-      method.extra_variables = args.variables.split(',')
+   method.show_wind = args.show_wind
    meteo = yrmeteo.meteogram.Meteogram()
    meteo.debug = args.debug
 

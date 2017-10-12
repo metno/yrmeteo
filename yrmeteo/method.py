@@ -33,7 +33,7 @@ class Method(object):
       self.hood = 0
       self.members = None
       self.debug = False
-      self.extra_variables = []
+      self.show_wind = False
 
    def get(self, input, I, J):
       """
@@ -82,20 +82,19 @@ class Simple(Method):
       temperature = np.repeat(temperature, precip.shape[1]/temperature.shape[1], axis=1)
 
       x_wind = y_wind = wind_gust = None
-      if "wind" in self.extra_variables:
+      if self.show_wind:
          x_wind = input.get(I, J, "x_wind_10m", 0, self.members)
          x_wind = x_wind[0:-1,:]
          x_wind = np.repeat(x_wind, precip.shape[1]/x_wind.shape[1], axis=1)
-      if "wind" in self.extra_variables:
          y_wind = input.get(I, J, "y_wind_10m", 0, self.members)
          y_wind = y_wind[0:-1,:]
          y_wind = np.repeat(y_wind, precip.shape[1]/y_wind.shape[1], axis=1)
-      if "gust" in self.extra_variables:
-         x_gust = input.get(I, J, "x_wind_gust_10m", 0, self.members)
-         y_gust = input.get(I, J, "y_wind_gust_10m", 0, self.members)
-         wind_gust = np.sqrt(x_gust**2 + y_gust**2)
-         wind_gust = wind_gust[0:-1,:]
-         wind_gust = np.repeat(wind_gust, precip.shape[1]/wind_gust.shape[1], axis=1)
+         if input.has_variable("x_wind_gust_10m") and input.has_variable("y_wind_gust_10m"):
+            x_gust = input.get(I, J, "x_wind_gust_10m", 0, self.members)
+            y_gust = input.get(I, J, "y_wind_gust_10m", 0, self.members)
+            wind_gust = np.sqrt(x_gust**2 + y_gust**2)
+            wind_gust = wind_gust[0:-1,:]
+            wind_gust = np.repeat(wind_gust, precip.shape[1]/wind_gust.shape[1], axis=1)
 
       data = self.calc(temperature, precip, cloud_cover, x_wind, y_wind, wind_gust)
 

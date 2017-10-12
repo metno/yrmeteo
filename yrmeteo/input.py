@@ -69,6 +69,9 @@ class Netcdf(object):
          self.Iname = latvar.dimensions[0]
          self.Jname = lonvar.dimensions[1]
 
+   def has_variable(self, name):
+      return name in self.file.variables
+
    def get_times(self):
       return self.file.variables["time"][:]
 
