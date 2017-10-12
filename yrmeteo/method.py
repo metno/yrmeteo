@@ -306,89 +306,57 @@ class IvarsMethod(Simple):
       self.precip_threshold = 0.5
 
    def get(self, input, I, J):
+      data = dict()
       assert(self.members is None or len(self.members) > 1)
-      precip = input.get(I, J, "precipitation_amount_acc", self.hood, self.members)
-      precip = precip[1:,:] - precip[:-1,:]
-      T = precip.shape[0]
-
       control_member = [0]
       if self.members is not None:
          control_member = [self.members[0]]
+
+      precip_ens = input.get(I, J, "precipitation_amount_acc", self.hood, self.members)
+      precip_ens = precip_ens[1:,:] - precip_ens[:-1,:]
+      T = precip_ens.shape[0]
+
       precip_control = input.get(I, J, "precipitation_amount_acc", self.hood, control_member)
       precip_control = precip_control[1:,:] - precip_control[:-1,:]
 
-      pop_ens = np.mean(precip > self.precip_threshold, axis=1)
+      pop_ens = np.mean(precip_ens > self.precip_threshold, axis=1)
       pop_control = np.mean(precip_control > self.precip_threshold, axis=1)
 
-      x_wind = None
-      y_wind = None
-      cloud_cover = None
-      temperature = None
-      wind_gust = None
+      precip = precip_control[:, 0]
+      precip[pop_ens < 0.35] = 0
+      precip_ens_mean = np.mean(precip_ens, axis=1)
+      precip[pop_ens > 0.45] = precip_ens_mean[pop_ens > 0.45]
 
-      cloud_cover = input.get(I, J, "cloud_area_fraction", self.hood, self.members)
-      cloud_cover = cloud_cover[0:-1,:]
+      data["precip"] = precip
+      data["precip_max"] = np.max(precip_ens, axis=1)
 
+      cloud_cover_ens = input.get(I, J, "cloud_area_fraction", self.hood, self.members)
+      cloud_cover_ens = cloud_cover_ens[0:-1,:]
       cloud_cover_control = input.get(I, J, "cloud_area_fraction", self.hood, control_member)
       cloud_cover_control = cloud_cover_control[0:-1,:]
 
-      temperature = input.get(I, J, "air_temperature_2m", 0, control_member) - 273.15
-      temperature = temperature[0:-1,:]
+      cloud_cover = cloud_cover_control[:, 0]
+      cloud_cover[pop_ens < 0.35] = 0
+      cloud_cover_mean = np.mean(cloud_cover_ens, axis=1)
+      cloud_cover[pop_ens > 0.45] = cloud_cover_mean[pop_ens > 0.45]
+      data["cloud_cover"] = cloud_cover
 
-      x_wind = y_wind = wind_gust = None
-      if "wind" in self.extra_variables:
-         x_wind = input.get(I, J, "x_wind_10m", 0, self.members)
-         x_wind = x_wind[0:-1,:]
-         y_wind = input.get(I, J, "y_wind_10m", 0, self.members)
-         y_wind = y_wind[0:-1,:]
-      if "gust" in self.extra_variables:
-         x_gust = input.get(I, J, "x_wind_gust_10m", 0, self.members)
-         y_gust = input.get(I, J, "y_wind_gust_10m", 0, self.members)
-         wind_gust = np.sqrt(x_gust**2 + y_gust**2)
-         wind_gust = wind_gust[0:-1,:]
-         wind_gust = np.mean(wind_gust, axis=1)
+      temperature_control = input.get(I, J, "air_temperature_2m", 0, control_member) - 273.15
+      data["temperature"] = temperature_control[0:-1,0]
 
-      t0 = temperature[:, 0]
-      p0 = precip_control[:, 0]
-      p0[pop_ens < 0.35] = 0
-      precip_mean = np.mean(precip, axis=1)
-      p0[pop_ens > 0.45] = precip_mean[pop_ens > 0.45]
 
-      c0 = cloud_cover_control[:, 0]
-      c0[pop_ens < 0.35] = 0
-      cloud_cover_mean = np.mean(cloud_cover, axis=1)
-      c0[pop_ens > 0.45] = cloud_cover_mean[pop_ens > 0.45]
-
-      pmax0 = np.max(precip, axis=1)
-      x0 = y0 = g0 = None
-      if x_wind is not None:
-         x0 = np.zeros(T, float)
-      if y_wind is not None:
-         y0 = np.zeros(T, float)
-      if wind_gust is not None:
-         g0 = np.zeros(T, float)
-
-      for t in range(T):
-         if self.debug:
-            print "Timestep: %d" % t
-            print "Temperature: %0.1f" % temperature0[t]
-            print "   " + " ".join("%0.1f" % q for q in temperature[t,:])
-            print "Precip: %0.1f" % precip0[t]
-            print "   " + " ".join("%0.1f" % q for q in precip[t,:])
-            print "Clouds: %0.1f" % cloud_cover0[t]
-            print "   " + " ".join("%0.1f" % q for q in cloud_cover[t,:])
-            print "---------------------------"
-
-      data = dict()
-      data["temperature"] = t0
-      data["precip"] = p0
-      data["cloud_cover"] = c0
-      data["precip_max"] = pmax0
-      if x0 is not None:
-         data["x_wind"] = x0
-      if y0 is not None:
-         data["y_wind"] = y0
-      if g0 is not None:
-         data["wind_gust"] = g0
+      if self.show_wind:
+         x_wind_ens = input.get(I, J, "x_wind_ens_10m", 0, self.members)
+         x_wind_ens = x_wind_ens[0:-1,:]
+         y_wind_ens = input.get(I, J, "y_wind_ens_10m", 0, self.members)
+         y_wind_ens = y_wind_ens[0:-1,:]
+         data["x_wind"] = np.mean(x_wind_ens, axis=1)
+         data["y_wind"] = np.mean(y_wind_ens, axis=1)
+         if input.has_variable("x_wind_ens_gust_10m") and input.has_variable("y_wind_ens_gust_10m"):
+            x_gust_ens = input.get(I, J, "x_wind_ens_gust_10m", 0, self.members)
+            y_gust_ens = input.get(I, J, "y_wind_ens_gust_10m", 0, self.members)
+            gust_ens = np.sqrt(x_gust_ens *2 + y_gust_ens *2)
+            gust_ens = gust_ens[0:-1,:]
+            data["wind_gust"] = np.mean(gust_ens, axis=1)
 
       return data
