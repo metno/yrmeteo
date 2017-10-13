@@ -346,7 +346,7 @@ class IvarsMethod(Simple):
       data["precip"] = precip
       # Only use precip_ens max if we don't use the control
       precip_max = np.percentile(precip_control, 80, axis=1)
-      precip_max[Iadd_precip] = np.percentile(precip_ens[Iadd_precip], 80, axis=1)
+      precip_max[Iadd_precip] = np.percentile(precip_ens[Iadd_precip,:], 80, axis=1)
       data["precip_max"] = precip_max
 
       """ Cloud cover
@@ -359,7 +359,7 @@ class IvarsMethod(Simple):
 
       cloud_cover = np.mean(cloud_cover_control, axis=1)
       # cloud_cover[Irm_precip] # Open question
-      cloud_cover[Iadd_precip] = np.mean(cloud_cover_ens, axis=1)
+      cloud_cover[Iadd_precip] = np.mean(cloud_cover_ens[Iadd_precip,:], axis=1)
       data["cloud_cover"] = cloud_cover
 
       """ Temperature: Use the control """
