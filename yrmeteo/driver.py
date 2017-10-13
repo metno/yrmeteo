@@ -21,6 +21,7 @@ def run(argv):
    parser.add_argument('-hood', default=0, type=int, help="Neighbourhood radius (in grid points)")
    parser.add_argument('-ylim', type=yrmeteo.util.parse_numbers, help="Y-axis limits for temperature (lower,upper)")
    parser.add_argument('-members', type=yrmeteo.util.parse_ints, help="Which ensemble members indices? E.g. 1:5,7,9.")
+   parser.add_argument('-dpi', type=int, default=150, help="Image dpi", dest="dpi")
    parser.add_argument('-tz', type=int, default=0, help="Timezone (0 UTC, 1 CET)")
    parser.add_argument('--debug', help="Show debug information?", action="store_true")
    parser.add_argument('--version', action="version", version=yrmeteo.version.__version__)
@@ -68,6 +69,7 @@ def run(argv):
 
    meteo.title = args.title
    meteo.ylim = args.ylim
+   meteo.dpi = args.dpi
    meteo.plot(times, data)
    if args.output_filename:
       meteo.save(args.output_filename)
