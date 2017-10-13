@@ -329,7 +329,8 @@ class IvarsMethod(Simple):
       pop_ens = np.mean(precip_ens >= self.precip_threshold, axis=1)
       pop_control = np.mean(precip_control >= self.precip_threshold, axis=1)
 
-      precip = np.percentile(precip_control, 50, axis=1)
+      # Base forecast base on median of control
+      precip = np.percentile(precip_control, 60, axis=1)
       hood_size = (self.hood * 2 + 1) * (self.hood * 2 + 1)
       num_members = np.sum(np.isnan(precip_ens) == 0, axis=1) / hood_size
       Irm_precip = np.where((pop_ens < 0.35) & (precip > 0.1) & (num_members >= self.min_members))[0]
@@ -338,7 +339,6 @@ class IvarsMethod(Simple):
       print "Adding: ", Iadd_precip
 
       # Make adjustments
-      precip[Iadd_precip] = np.percentile(precip_control, 60, axis=1)
       precip[Irm_precip] = 0
       precip_ens_det = np.percentile(precip_ens, 55, axis=1)
       precip[Iadd_precip] = precip_ens_det[Iadd_precip]
