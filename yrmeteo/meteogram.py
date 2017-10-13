@@ -40,6 +40,17 @@ class Meteogram(object):
             ax.xaxis.set_ticklabels([])
          ax.xaxis.grid(True, which='major', color=gray, zorder=3, linestyle='-', linewidth=2)
          ax.xaxis.grid(True, which='minor', color=gray, zorder=2, linestyle='-', lw=1)
+
+         # Align labels. For some strange reason, this does not work if the code is placed outside
+         # this if/else block...
+         ticks = ax.xaxis.get_major_ticks()
+         for n, tick in enumerate(ax.xaxis.get_major_ticks()):
+            # Don't show the last label if it is unlikely to fit, because there aren't enough hours in
+            # that day in the graph
+            if n == len(ticks)-1 and (xlim[1] % 1) <= 0.42:
+               tick.label1.set_visible(False)
+            else:
+               tick.label1.set_horizontalalignment("left")
       else:
          ax.xaxis.set_major_locator(mpldates.DayLocator(interval=1))
          ax.xaxis.set_minor_locator(mpldates.HourLocator(byhour=range(0,24,6)))
@@ -50,6 +61,17 @@ class Meteogram(object):
             ax.xaxis.set_ticklabels([])
          ax.xaxis.grid(True, which='major', color=gray, zorder=3, linestyle='-', linewidth=2)
          ax.xaxis.grid(True, which='minor', color=gray, zorder=2, linestyle='-', lw=1)
+
+         # Align labels
+         ticks = ax.xaxis.get_major_ticks()
+         for n, tick in enumerate(ax.xaxis.get_major_ticks()):
+            # Don't show the last label if it is unlikely to fit, because there aren't enough hours in
+            # that day in the graph
+            if n == len(ticks)-1 and (xlim[1] % 1) <= 0.42:
+               tick.label1.set_visible(False)
+            else:
+               tick.label1.set_horizontalalignment("left")
+
 
    def adjust_yaxis(self, ax=None, show_tick_labels=True):
       if ax is None:
@@ -183,16 +205,6 @@ class Meteogram(object):
             ax_wind.set_yticks([])
          axlast = ax_wind
 
-      # Remove the last date label
-      ticks = axlast.xaxis.get_major_ticks()
-      for n in range(0, len(ticks)):
-         tick = ticks[n]
-         # Don't show the last label if it is unlikely to fit, because there aren't enough hours in
-         # that day in the graph
-         if n == len(ticks)-1 and (xlim[1] % 1) <= 0.42:
-            tick.label1.set_visible(False)
-         else:
-            tick.label1.set_horizontalalignment('left')
       ax2.set_yticks([])
 
       labels = [u"%d\u00B0" % item for item in ax1.get_yticks()]
