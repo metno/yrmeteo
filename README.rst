@@ -4,7 +4,7 @@ Yr-meteogram
 This package allows testing of different strategies for creating deterministic forecasts from an
 ensemble. The forecasts are visualized using an imitation of the short-range meteogram found on https://www.yr.no.
 
-.. image:: other/consensus.png
+.. image:: other/image.png
     :alt: Example plots
     :width: 400
     :align: center
