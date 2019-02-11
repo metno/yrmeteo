@@ -103,6 +103,13 @@ class Netcdf(object):
       Returns:
          np.array: 2D array (time, member*I*J)
       """
+      variable_use = variable
+      deacc = False
+      if variable not in self.file.variables:
+         if variable == "precipitation_amount":
+            variable_use = "precipitation_amount_acc"
+            deacc = True
+
       Irange = range(max(0, I-size), min(I+size+1, self.lats.shape[0]-1))
       Jrange = range(max(0, J-size), min(J+size+1, self.lats.shape[1]-1))
 
@@ -111,8 +118,8 @@ class Netcdf(object):
       Jdim = None
       Tdim = None
       Edim = None
-      dims = self.file.variables[variable].dimensions
-      shape = self.file.variables[variable].shape
+      dims = self.file.variables[variable_use].dimensions
+      shape = self.file.variables[variable_use].shape
       for i in range(len(dims)):
          dim = dims[i]
          if dim == "time":
@@ -126,11 +133,11 @@ class Netcdf(object):
 
       # Check that we have the necessary dimensions
       if Tdim is None:
-         yrmeteo.util.error("Variable %s is missing a time dimension" % variable)
+         yrmeteo.util.error("Variable %s is missing a time dimension" % variable_use)
       if Idim is None:
-         yrmeteo.util.error("Variable %s is missing an x dimension" % variable)
+         yrmeteo.util.error("Variable %s is missing an x dimension" % variable_use)
       if Jdim is None:
-         yrmeteo.util.error("Variable %s is missing a y dimension" % variable)
+         yrmeteo.util.error("Variable %s is missing a y dimension" % variable_use)
 
       # Use first index for any dimension we do not recognize
       s = time.time()
@@ -145,16 +152,16 @@ class Netcdf(object):
             I[Edim] = members
 
       if len(dims) == 3:
-         temp = yrmeteo.util.clean(self.file.variables[variable][I[0], I[1], I[2]])
+         temp = yrmeteo.util.clean(self.file.variables[variable_use][I[0], I[1], I[2]])
          temp = np.expand_dims(temp, 3)
          temp = np.expand_dims(temp, 4)
       elif len(dims) == 4:
-         temp = yrmeteo.util.clean(self.file.variables[variable][I[0], I[1], I[2], I[3]])
+         temp = yrmeteo.util.clean(self.file.variables[variable_use][I[0], I[1], I[2], I[3]])
          temp = np.expand_dims(temp, 4)
       elif len(dims) == 5:
-         temp = yrmeteo.util.clean(self.file.variables[variable][I[0], I[1], I[2], I[3], I[4]])
+         temp = yrmeteo.util.clean(self.file.variables[variable_use][I[0], I[1], I[2], I[3], I[4]])
       else:
-         yrmeteo.util.error("Variable %s does not have between 3 and 5 dimensions" % variable)
+         yrmeteo.util.error("Variable %s does not have between 3 and 5 dimensions" % variable_use)
 
       # Rearrange dimensions
       EEdim = Edim
@@ -170,5 +177,9 @@ class Netcdf(object):
       data = np.zeros([temp.shape[0], temp.shape[1]*temp.shape[2]*temp.shape[3]], float)
       for t in range(temp.shape[0]):
          data[t,:] = temp[t, :, :, :].flatten()
+
+      if deacc:
+         precip[1:,:] = precip[1:,:] - precip[:-1,:]
+         precip[0, :] = np.nan
 
       return data

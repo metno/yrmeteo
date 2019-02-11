@@ -67,8 +67,8 @@ class Simple(Method):
    """
    def get(self, input, I, J):
       # Precipitation
-      precip = input.get(I, J, "precipitation_amount_acc", self.hood, self.members)
-      precip = precip[1:,:] - precip[:-1,:]
+      precip = input.get(I, J, "precipitation_amount", self.hood, self.members)
+      precip = precip[1:,:]
       N = precip.shape[0]
 
       # Cloud cover
@@ -319,12 +319,12 @@ class IvarsMethod(Simple):
       When POP > 45% and contorl is 0, use the 60th percentile of the ensemble
       When POP < 35% and control is > 0, use 0 mm
       """
-      precip_ens = input.get(I, J, "precipitation_amount_acc", self.hood, self.members)
-      precip_ens = precip_ens[1:,:] - precip_ens[:-1,:]
+      precip_ens = input.get(I, J, "precipitation_amount", self.hood, self.members)
+      precip_ens = precip_ens[1:,:]
       T = precip_ens.shape[0]
 
-      precip_control = input.get(I, J, "precipitation_amount_acc", self.hood, control_member)
-      precip_control = precip_control[1:,:] - precip_control[:-1,:]
+      precip_control = input.get(I, J, "precipitation_amount", self.hood, control_member)
+      precip_control = precip_control[1:,:]
 
       pop_ens = np.mean(precip_ens >= self.precip_threshold, axis=1)
       pop_control = np.mean(precip_control >= self.precip_threshold, axis=1)
