@@ -2,6 +2,7 @@ import inspect
 import sys
 import numpy as np
 import yrmeteo.symbol
+import copy
 import re
 
 def get_all():
@@ -71,6 +72,15 @@ class Simple(Method):
       precip = precip[1:,:]
       N = precip.shape[0]
 
+      # Precipitation max
+      if input.has_variable("precipitation_amount_max"):
+         precip_max = input.get(I, J, "precipitation_amount_max", 0, self.members)
+         precip_max = precip_max[1:,:]
+      else:
+         yrmeteo.util.warning("Could not find precipitation_amount_max")
+         precip_max = copy.deepcopy(precip)
+      precip_max = np.percentile(precip_max, 80, axis=1)
+
       # Cloud cover
       cloud_cover = input.get(I, J, "cloud_area_fraction", self.hood, self.members)
       cloud_cover = cloud_cover[0:-1,:]
@@ -96,11 +106,11 @@ class Simple(Method):
             wind_gust = wind_gust[0:-1,:]
             wind_gust = np.repeat(wind_gust, precip.shape[1]/wind_gust.shape[1], axis=1)
 
-      data = self.calc(temperature, precip, cloud_cover, x_wind, y_wind, wind_gust)
+      data = self.calc(temperature, precip, precip_max, cloud_cover, x_wind, y_wind, wind_gust)
 
       return data
 
-   def calc(self, temperature, precip, cloud_cover, x_wind=None, y_wind=None, wind_gust=None):
+   def calc(self, temperature, precip, precip_max, cloud_cover, x_wind=None, y_wind=None, wind_gust=None):
       """
       Turn a multi-variate ensemble into deterministic values
 
@@ -108,6 +118,7 @@ class Simple(Method):
          The following are 2D numpy arrays (time, member):
          temperature: temperature in degrees C
          precip: precipitation in mm
+         precip_max: maximum precipitation in mm (not an ensemble)
          cloud_cover: cloud area fraction (between 0 and 1)
 
       Returns:
@@ -123,7 +134,7 @@ class Func(Simple):
 
    Implement func() to make the class work.
    """
-   def calc(self, temperature, precip, cloud_cover, x_wind=None, y_wind=None, wind_gust=None):
+   def calc(self, temperature, precip, precip_max, cloud_cover, x_wind=None, y_wind=None, wind_gust=None):
       T = temperature.shape[0]
       t0 = np.zeros(T, float)
       p0 = np.zeros(T, float)
@@ -140,7 +151,7 @@ class Func(Simple):
          t0[t] = self.func(temperature[t, :])
          p0[t] = self.func(precip[t, :])
          c0[t] = self.func(cloud_cover[t, :])
-         pmax0[t] = yrmeteo.util.nanpercentile(precip[t, :], 80)
+         pmax0[t] = precip[t]
          if x_wind is not None:
             x0[t] = self.func(x_wind[t, :])
          if y_wind is not None:
@@ -188,7 +199,7 @@ class Consensus(Simple):
    """
    Compute symbol, then take the median of those members with the most common symbol
    """
-   def calc(self, temperature, precip, cloud_cover, x_wind=None, y_wind=None, wind_gust=None):
+   def calc(self, temperature, precip, precip_max, cloud_cover, x_wind=None, y_wind=None, wind_gust=None):
       T = temperature.shape[0]
       M = temperature.shape[1]
       t0 = np.zeros(T, float)
@@ -207,7 +218,7 @@ class Consensus(Simple):
          t0[t] = np.nanmedian(temperature[t,I])
          p0[t] = np.nanmedian(precip[t,I])
          c0[t] = np.nanmedian(cloud_cover[t,I])
-         pmax0[t] = yrmeteo.util.nanpercentile(precip[t,I], 80)
+         pmax0[t] = precip_max[t]
       data = dict()
       data["temperature"] = t0
       data["precip"] = p0
@@ -218,7 +229,7 @@ class Consensus(Simple):
 
 
 class ConsensusPrecip(Simple):
-   def calc(self, temperature, precip, cloud_cover, x_wind=None, y_wind=None, wind_gust=None):
+   def calc(self, temperature, precip, precip_max, cloud_cover, x_wind=None, y_wind=None, wind_gust=None):
       """
       Find the most common number of drops (in symbol) and take the median of the
       members with this number of drops.
@@ -244,7 +255,7 @@ class ConsensusPrecip(Simple):
          t0[t] = np.nanmedian(temperature[t, I])
          p0[t] = np.nanmedian(precip[t, I])
          c0[t] = np.nanmedian(cloud_cover[t, I])
-         pmax0[t] = yrmeteo.util.nanpercentile(precip[t, I], 80)
+         pmax0[t] = precip_max[t]
 
       data = dict()
       data["temperature"] = t0
@@ -262,7 +273,7 @@ class BestMember(Simple):
    def __init__(self, window_size=6):
       self.window_size = window_size
 
-   def calc(self, temperature, precip, cloud_cover, x_wind=None, y_wind=None, wind_gust=None):
+   def calc(self, temperature, precip, precip_max, cloud_cover, x_wind=None, y_wind=None, wind_gust=None):
       T = temperature.shape[0]
       M = temperature.shape[1]
       t0 = np.zeros(T, float)
@@ -286,7 +297,7 @@ class BestMember(Simple):
          t0[t] = temperature[t,I]
          p0[t] = precip[t,I]
          c0[t] = cloud_cover[t,I]
-         pmax0[t] = yrmeteo.util.nanpercentile(precip[t,:], 80)
+         pmax0[t] = precip_max[t]
 
       data = dict()
       data["temperature"] = t0
