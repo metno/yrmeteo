@@ -81,6 +81,24 @@ class Simple(Method):
          precip_max = copy.deepcopy(precip)
       precip_max = np.percentile(precip_max, 80, axis=1)
 
+      # Precipiation min
+      if input.has_variable("precipitation_amount_min"):
+         precip_min = input.get(I, J, "precipitation_amount_min", 0, self.members)
+         precip_min = precip_min[1:,:]
+      else:
+         yrmeteo.util.warning("Could not find precipitation_amount_min")
+         precip_min = copy.deepcopy(precip)
+      precip_min = np.percentile(precip_min, 20, axis=1)
+
+      # Probability of precipitation
+      if input.has_variable("probability_of_precipitation"):
+         precip_pop = input.get(I, J, "probability_of_precipitation", 0, self.members)
+         precip_pop = precip_pop[1:,:]
+      else:
+         yrmeteo.util.warning("Could not find probability_of_precipitation")
+         precip_pop = copy.deepcopy(precip)
+         precip_pop = np.mean(precip_pop >= 0.1, axis=1)
+
       # Cloud cover
       cloud_cover = input.get(I, J, "cloud_area_fraction", self.hood, self.members)
       cloud_cover = cloud_cover[0:-1,:]
@@ -106,11 +124,11 @@ class Simple(Method):
             wind_gust = wind_gust[0:-1,:]
             wind_gust = np.repeat(wind_gust, precip.shape[1]/wind_gust.shape[1], axis=1)
 
-      data = self.calc(temperature, precip, precip_max, cloud_cover, x_wind, y_wind, wind_gust)
+      data = self.calc(temperature, precip, precip_min, precip_max, precip_pop, cloud_cover, x_wind, y_wind, wind_gust)
 
       return data
 
-   def calc(self, temperature, precip, precip_max, cloud_cover, x_wind=None, y_wind=None, wind_gust=None):
+   def calc(self, temperature, precip, precip_min, precip_max, precip_pop, cloud_cover, x_wind=None, y_wind=None, wind_gust=None):
       """
       Turn a multi-variate ensemble into deterministic values
 
@@ -118,12 +136,14 @@ class Simple(Method):
          The following are 2D numpy arrays (time, member):
          temperature: temperature in degrees C
          precip: precipitation in mm
+         precip_min: minimum precipitation in mm (not an ensemble)
          precip_max: maximum precipitation in mm (not an ensemble)
+         precip_pop: probability of precipitation (not an ensemble)
          cloud_cover: cloud area fraction (between 0 and 1)
 
       Returns:
          dict(str -> np.array): A dictionary with variable name to array of vaues
-            Should contain these keys: temperature, precip, cloud_cover, precip_max
+            Should contain these keys: temperature, precip, cloud_cover, precip_min, precip_max, precip_pop
             Optionally include: x_wind, y_wind, wind_gust
       """
       raise NotImplementedError()
@@ -134,12 +154,14 @@ class Func(Simple):
 
    Implement func() to make the class work.
    """
-   def calc(self, temperature, precip, precip_max, cloud_cover, x_wind=None, y_wind=None, wind_gust=None):
+   def calc(self, temperature, precip, precip_min, precip_max, precip_pop, cloud_cover, x_wind=None, y_wind=None, wind_gust=None):
       T = temperature.shape[0]
       t0 = np.zeros(T, float)
       p0 = np.zeros(T, float)
       c0 = np.zeros(T, float)
+      pmin0 = np.zeros(T, float)
       pmax0 = np.zeros(T, float)
+      pop0 = np.zeros(T, float)
       x0 = y0 = g0 = None
       if x_wind is not None:
          x0 = np.zeros(T, float)
@@ -151,7 +173,9 @@ class Func(Simple):
          t0[t] = self.func(temperature[t, :])
          p0[t] = self.func(precip[t, :])
          c0[t] = self.func(cloud_cover[t, :])
-         pmax0[t] = precip[t]
+         pmin0[t] = precip_min[t]
+         pmax0[t] = precip_max[t]
+         pop0[t] = precip_pop[t]
          if x_wind is not None:
             x0[t] = self.func(x_wind[t, :])
          if y_wind is not None:
@@ -163,7 +187,9 @@ class Func(Simple):
       data["temperature"] = t0
       data["precip"] = p0
       data["cloud_cover"] = c0
+      data["precip_min"] = pmin0
       data["precip_max"] = pmax0
+      data["precip_pop"] = pop0
       if x0 is not None:
          data["x_wind"] = x0
       if y0 is not None:
@@ -199,13 +225,16 @@ class Consensus(Simple):
    """
    Compute symbol, then take the median of those members with the most common symbol
    """
-   def calc(self, temperature, precip, precip_max, cloud_cover, x_wind=None, y_wind=None, wind_gust=None):
+   def calc(self, temperature, precip, precip_min, precip_max, precip_pop, cloud_cover, x_wind=None, y_wind=None, wind_gust=None):
       T = temperature.shape[0]
       M = temperature.shape[1]
       t0 = np.zeros(T, float)
       p0 = np.zeros(T, float)
       c0 = np.zeros(T, float)
+      pmin0 = np.zeros(T, float)
       pmax0 = np.zeros(T, float)
+      pop0 = np.zeros(T, float)
+      print precip
       for t in range(T):
          cat = np.nan*np.zeros(M, float)
          symbols = np.nan*np.zeros(M, int)
@@ -213,23 +242,28 @@ class Consensus(Simple):
             if not np.isnan(precip[t, m]) and not np.isnan(cloud_cover[t, m]):
                symbols[m] = yrmeteo.symbol.get_code(10, precip[t, m], cloud_cover[t, m])
          I = np.where(np.isnan(symbols) == 0)[0]
+         print t, I, symbols
          consensus = np.argmax(np.bincount(symbols[I].astype(int)))
          I = np.where(symbols == consensus)[0]
          t0[t] = np.nanmedian(temperature[t,I])
          p0[t] = np.nanmedian(precip[t,I])
          c0[t] = np.nanmedian(cloud_cover[t,I])
+         pmin0[t] = precip_min[t]
          pmax0[t] = precip_max[t]
+         pop0[t] = precip_pop[t]
       data = dict()
       data["temperature"] = t0
       data["precip"] = p0
       data["cloud_cover"] = c0
+      data["precip_min"] = pmin0
       data["precip_max"] = pmax0
+      data["precip_pop"] = pop0
 
       return data
 
 
 class ConsensusPrecip(Simple):
-   def calc(self, temperature, precip, precip_max, cloud_cover, x_wind=None, y_wind=None, wind_gust=None):
+   def calc(self, temperature, precip, precip_min, precip_max, precip_pop, cloud_cover, x_wind=None, y_wind=None, wind_gust=None):
       """
       Find the most common number of drops (in symbol) and take the median of the
       members with this number of drops.
@@ -239,7 +273,9 @@ class ConsensusPrecip(Simple):
       t0 = np.zeros(T, float)
       p0 = np.zeros(T, float)
       c0 = np.zeros(T, float)
+      pmin0 = np.zeros(T, float)
       pmax0 = np.zeros(T, float)
+      pop0 = np.zeros(T, float)
       for t in range(T):
          # Array with number of drops for each member
          drops = np.nan*np.zeros(M, float)
@@ -255,13 +291,17 @@ class ConsensusPrecip(Simple):
          t0[t] = np.nanmedian(temperature[t, I])
          p0[t] = np.nanmedian(precip[t, I])
          c0[t] = np.nanmedian(cloud_cover[t, I])
+         pmin0[t] = precip_min[t]
          pmax0[t] = precip_max[t]
+         pop0[t] = precip_pop[t]
 
       data = dict()
       data["temperature"] = t0
       data["precip"] = p0
       data["cloud_cover"] = c0
+      data["precip_min"] = pmin0
       data["precip_max"] = pmax0
+      data["precip_pop"] = pop0
 
       return data
 
@@ -273,13 +313,15 @@ class BestMember(Simple):
    def __init__(self, window_size=6):
       self.window_size = window_size
 
-   def calc(self, temperature, precip, precip_max, cloud_cover, x_wind=None, y_wind=None, wind_gust=None):
+   def calc(self, temperature, precip, precip_min, precip_max, precip_pop, cloud_cover, x_wind=None, y_wind=None, wind_gust=None):
       T = temperature.shape[0]
       M = temperature.shape[1]
       t0 = np.zeros(T, float)
       p0 = np.zeros(T, float)
       c0 = np.zeros(T, float)
+      pmin0 = np.zeros(T, float)
       pmax0 = np.zeros(T, float)
+      pop0 = np.zeros(T, float)
 
       # Find optimal member
       TI = np.where(np.sum(np.isnan(precip), axis=1) == 0)[0]
@@ -297,13 +339,17 @@ class BestMember(Simple):
          t0[t] = temperature[t,I]
          p0[t] = precip[t,I]
          c0[t] = cloud_cover[t,I]
+         pmin0[t] = precip_min[t]
          pmax0[t] = precip_max[t]
+         pop0[t] = precip_pop[t]
 
       data = dict()
       data["temperature"] = t0
       data["precip"] = p0
       data["cloud_cover"] = c0
+      data["precip_min"] = pmin0
       data["precip_max"] = pmax0
+      data["precip_pop"] = pop0
 
       return data
 
@@ -359,6 +405,13 @@ class IvarsMethod(Simple):
       precip_max = np.percentile(precip_control, 80, axis=1)
       precip_max[Iadd_precip] = np.percentile(precip_ens[Iadd_precip,:], 80, axis=1)
       data["precip_max"] = precip_max
+
+      # TODO: How to we deal with min?
+      precip_min = np.percentile(precip_control, 20, axis=1)
+      precip_min[Iadd_precip] = np.percentile(precip_ens[Iadd_precip,:], 20, axis=1)
+      data["precip_min"] = precip_min
+
+      data["precip_pop"] = pop_ens
 
       """ Cloud cover
       Use the cloud cover from the ensemble when adding precipitation

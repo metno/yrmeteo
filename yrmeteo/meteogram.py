@@ -114,7 +114,9 @@ class Meteogram(object):
       dy = ylim[1] - ylim[0]
       dlt = times[1]-times[0]
       precip = data["precip"]
+      precip_min = data["precip_min"]
       precip_max = data["precip_max"]
+      precip_pop = data["precip_pop"]
       cloud_cover = data["cloud_cover"]
       for t in range(len(times)):
          if dlt >= 2.0/24 or (times[t] * 24) % 2 == 1:
@@ -122,11 +124,19 @@ class Meteogram(object):
                symbol = yrmeteo.symbol.get(temperature[t], precip[t], cloud_cover[t])
                image = mplimg.imread(symbol)
                h = 0.7/5*dy/dx*2.75*dlt*24  # Icon height
+               dy1 = dy/12
                if dlt <= 2.0/24:
-                  extent = [times[t]-dlt,times[t]+dlt,temperature[t]+dy/15, temperature[t]+dy/15+h]
+                  extent = [times[t]-dlt,times[t]+dlt,temperature[t]+dy1, temperature[t]+dy1+h]
                else:
-                  extent = [times[t]-dlt/2.0,times[t]+dlt/2.0,temperature[t]+dy/15, temperature[t]+dy/15+h/2.0]
+                  extent = [times[t]-dlt/2.0,times[t]+dlt/2.0,temperature[t]+dy1, temperature[t]+dy1+h/2.0]
                ax1.imshow(image, aspect="auto", extent=extent, zorder=10)
+               if precip_pop is not None:
+                  pop = np.round(precip_pop[t],1)*100
+                  pop = np.round(precip_pop[t],2)*100
+                  if pop > 0:
+                     ax1.text(times[t], temperature[t] + dy/30, "%d%%" % (pop),
+                     horizontalalignment='center', fontsize=10)
+                  print precip_pop[t]*100, precip_max[t]
       self.adjust_xaxis(ax1, False)
       self.adjust_yaxis(ax1, False)
 
@@ -146,7 +156,10 @@ class Meteogram(object):
             if not np.isnan(precip_max[t]) and precip_max[t] > 0.1:
                mpl.text(times[t]+dlt/2.0, precip_max[t], "%0.1f" % precip_max[t], fontsize=6,
                      horizontalalignment="center", color="k")
-      ax2.bar(times+0.1/24, precip, 0.95*dlt, color=blue, lw=0)
+      main_blue_bar = precip
+      if precip_min is not None:
+         main_blue_bar = precip_min
+      ax2.bar(times+0.1/24, main_blue_bar, 0.95*dlt, color=blue, lw=0)
       #ax2.set_ylabel("Precipitation (mm)")
       #ax2.set_xticks([])
       lim = [0, 10]
@@ -158,8 +171,8 @@ class Meteogram(object):
       ax2.set_ylim(lim)
       self.adjust_xaxis(ax2, not show_wind)
       for t in range(len(times)):
-         if not np.isnan(precip[t]) and precip[t] > 0.1:
-            mpl.text(times[t]+dlt/2.0, 0, "%0.1f" % precip[t], fontsize=6,
+         if not np.isnan(main_blue_bar[t]) and main_blue_bar[t] > 0.1:
+            mpl.text(times[t]+dlt/2.0, 0, "%0.1f" % main_blue_bar[t], fontsize=6,
                   horizontalalignment="center", color="k")
       axlast = ax2
 

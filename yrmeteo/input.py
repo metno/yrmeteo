@@ -107,8 +107,14 @@ class Netcdf(object):
       deacc = False
       if variable not in self.file.variables:
          if variable == "precipitation_amount":
-            variable_use = "precipitation_amount_acc"
-            deacc = True
+            if "precipitation_amount_acc" in self.file.variables:
+               variable_use = "precipitation_amount_acc"
+               deacc = True
+            elif "precipitation_amount_consensus" in self.file.variables:
+               variable_use = "precipitation_amount_consensus"
+            else:
+               yrmeteo.util.error("Cannot find precipitation variable")
+
 
       Irange = range(max(0, I-size), min(I+size+1, self.lats.shape[0]-1))
       Jrange = range(max(0, J-size), min(J+size+1, self.lats.shape[1]-1))
