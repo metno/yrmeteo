@@ -88,6 +88,7 @@ class Meteogram(object):
 
    def plot(self, times, data):
       show_wind = "x_wind" in data and "y_wind" in data
+      show_pop = True
       """
       Plot temperature
       """
@@ -130,7 +131,7 @@ class Meteogram(object):
                else:
                   extent = [times[t]-dlt/2.0,times[t]+dlt/2.0,temperature[t]+dy1, temperature[t]+dy1+h/2.0]
                ax1.imshow(image, aspect="auto", extent=extent, zorder=10)
-               if precip_pop is not None:
+               if show_pop and precip_pop is not None:
                   pop = np.round(precip_pop[t],1)*100
                   pop = np.round(precip_pop[t],2)*100
                   if pop > 0:
