@@ -179,7 +179,7 @@ class Netcdf(object):
          data[t,:] = temp[t, :, :, :].flatten()
 
       if deacc:
-         precip[1:,:] = precip[1:,:] - precip[:-1,:]
-         precip[0, :] = np.nan
+         data[1:,:] = data[1:,:] - data[:-1,:]
+         data[0, :] = np.nan
 
       return data
