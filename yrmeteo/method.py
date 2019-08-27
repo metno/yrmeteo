@@ -244,6 +244,53 @@ class Median(Func):
     def func(self, ar):
         return np.nanmedian(ar)
 
+class ThomasMethod(Simple):
+    def calc(self, temperature, temperature_lower, temperature_upper, precip, precip_min, precip_max, precip_pop, cloud_cover, x_wind=None, y_wind=None, wind_gust=None):
+        T = temperature.shape[0]
+        M = temperature.shape[1]
+        t0 = np.zeros(T, float)
+        t0_lower = np.zeros(T, float)
+        t0_upper = np.zeros(T, float)
+        p0 = np.zeros(T, float)
+        c0 = np.zeros(T, float)
+        pmin0 = np.zeros(T, float)
+        pmax0 = np.zeros(T, float)
+        pop0 = precip_pop
+        w = 6
+        for t in range(w, T-w):
+            I = range(t-w, t+w+1)
+            N = np.nansum(precip[I, :] > 0.1, axis=0) # Number of hours with precip in the window
+            N = np.nanmean(N)
+            popI = np.argsort(np.argsort(pop0[I])[::-1])
+            if np.round(N) > popI[w] and pop0[t] > 0:
+                I = np.where(precip[t, :] > 0.1)[0]
+                p0[t] = np.nanmedian(precip[t,I])
+                pmin0[t] = np.nanmedian(precip[t,I])
+
+        for t in range(0, T):
+            t0[t] = np.nanmedian(temperature[t, :])
+            if temperature_lower is not None and temperature_upper is not None:
+                t0_lower[t] = np.nanmedian(temperature_lower[t, :])
+                t0_upper[t] = np.nanmedian(temperature_upper[t, :])
+            #p0[t] = np.nanmedian(precip[t, :])
+            c0[t] = np.nanmedian(cloud_cover[t, :])
+            #pmin0[t] = precip_min[t]
+            #pmax0[t] = precip_max[t]
+            pop0[t] = precip_pop[t]
+            pmax0[t] = precip_max[t]
+        data = dict()
+        data["temperature"] = t0
+        if temperature_lower is not None and temperature_upper is not None:
+            data["temperature_lower"] = t0_lower
+            data["temperature_upper"] = t0_upper
+        data["precip"] = p0
+        data["cloud_cover"] = c0
+        data["precip_min"] = pmin0
+        data["precip_max"] = pmax0
+        data["precip_pop"] = pop0
+
+        return data
+
 
 class Consensus(Simple):
     """
@@ -261,7 +308,6 @@ class Consensus(Simple):
         pmax0 = np.zeros(T, float)
         pop0 = np.zeros(T, float)
         for t in range(T):
-            cat = np.nan*np.zeros(M, float)
             symbols = np.nan*np.zeros(M, int)
             for m in range(M):
                 if not np.isnan(precip[t, m]) and not np.isnan(cloud_cover[t, m]):
