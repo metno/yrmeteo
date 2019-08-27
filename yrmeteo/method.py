@@ -76,6 +76,9 @@ class Simple(Method):
         if input.has_variable("precipitation_amount_max"):
             precip_max = input.get(I, J, "precipitation_amount_max", 0, self.members)
             precip_max = precip_max[1:,:]
+        elif input.has_variable("precipitation_amount_high_estimate"):
+            precip_max = input.get(I, J, "precipitation_amount_high_estimate", 0, self.members)
+            precip_max = precip_max[1:,:]
         else:
             yrmeteo.util.warning("Could not find precipitation_amount_max")
             precip_max = copy.deepcopy(precip)
@@ -84,6 +87,9 @@ class Simple(Method):
         # Precipiation min
         if input.has_variable("precipitation_amount_min"):
             precip_min = input.get(I, J, "precipitation_amount_min", 0, self.members)
+            precip_min = precip_min[1:,:]
+        elif input.has_variable("precipitation_amount_low_estimate"):
+            precip_min = input.get(I, J, "precipitation_amount_low_estimate", 0, self.members)
             precip_min = precip_min[1:,:]
         else:
             yrmeteo.util.warning("Could not find precipitation_amount_min")

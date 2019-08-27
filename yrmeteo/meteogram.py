@@ -24,11 +24,15 @@ class Meteogram(object):
         self.ylim = None
         self.debug = False
         self.dpi = 150
+        self.start_time_index = 0
+        self.show_pop = True
 
     def adjust_xaxis(self, ax=None, show_tick_labels=True):
         if ax is None:
             ax = mpl.gca()
         xlim = ax.get_xlim()
+        xlim = [xlim[0] + self.start_time_index/24.0, xlim[1]]
+        ax.set_xlim(xlim)
         L = xlim[1] - xlim[0]
         if L <= 5:
             ax.xaxis.set_major_locator(mpldates.DayLocator(interval=1))
@@ -97,7 +101,6 @@ class Meteogram(object):
 
     def plot(self, times, data):
         show_wind = "wind" in data and "wind_dir" in data
-        show_pop = True
         """
         Plot temperature
         """
@@ -147,7 +150,7 @@ class Meteogram(object):
                     else:
                         extent = [times[t]-dlt/2.0,times[t]+dlt/2.0,temperature[t]+dy1, temperature[t]+dy1+h/2.0]
                     ax1.imshow(image, aspect="auto", extent=extent, zorder=10)
-                    if show_pop and precip_pop is not None:
+                    if self.show_pop and precip_pop is not None:
                         pop = np.round(precip_pop[t],1)*100
                         pop = np.round(precip_pop[t],2)*100
                         if pop > 0:
@@ -170,7 +173,7 @@ class Meteogram(object):
             precip_max[precip_max < 0.1] = 0
             ax2.bar(times+0.1/24, precip_max, 0.95*dlt, color="white", ec=blue, hatch="//////", lw=0, zorder=0)
             for t in range(len(times)):
-                if not np.isnan(precip_max[t]) and precip_max[t] > 0.1:
+                if not np.isnan(precip_max[t]) and precip_max[t] > 0.1 and precip_max[t] < 10:
                     mpl.text(times[t]+dlt/2.0, precip_max[t], "%0.1f" % precip_max[t], fontsize=6,
                           horizontalalignment="center", color="k")
         main_blue_bar = precip

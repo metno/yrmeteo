@@ -110,13 +110,17 @@ class Netcdf(object):
         """
         variable_use = variable
         deacc = False
+        mult = 1
+        add = 0
         if variable not in self.file.variables:
             if variable == "precipitation_amount":
-                if "precipitation_amount_acc" in self.file.variables:
-                    variable_use = "precipitation_amount_acc"
-                    deacc = True
+                if "precipitation_amount_middle_estimate" in self.file.variables:
+                    variable_use = "precipitation_amount_middle_estimate"
                 elif "precipitation_amount_consensus" in self.file.variables:
                     variable_use = "precipitation_amount_consensus"
+                elif "precipitation_amount_acc" in self.file.variables:
+                    variable_use = "precipitation_amount_acc"
+                    deacc = True
                 else:
                     yrmeteo.util.error("Cannot find precipitation variable")
             elif variable == "wind_speed_10m":
@@ -127,7 +131,11 @@ class Netcdf(object):
                 x = self.get(I, J, "x_wind_gust_10m", size, members)
                 y = self.get(I, J, "y_wind_gust_10m", size, members)
                 return np.sqrt(x**2 + y**2)
-
+        if variable == "cloud_area_fraction":
+            if "cloud_area_fraction" in self.file.variables:
+                if self.file.variables["cloud_area_fraction"].units == "%":
+                    mult = 0.01
+                        
 
         Irange = range(max(0, I-size), min(I+size+1, self.lats.shape[0]-1))
         Jrange = range(max(0, J-size), min(J+size+1, self.lats.shape[1]-1))
@@ -201,4 +209,5 @@ class Netcdf(object):
             data[1:,:] = data[1:,:] - data[:-1,:]
             data[0, :] = np.nan
 
-        return data
+        print mult
+        return data * mult + add

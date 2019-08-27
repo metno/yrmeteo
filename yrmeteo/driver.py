@@ -26,6 +26,8 @@ def run(argv):
     parser.add_argument('--debug', help="Show debug information?", action="store_true")
     parser.add_argument('--version', action="version", version=yrmeteo.version.__version__)
     parser.add_argument('--show_wind', help="Show wind speed and direction", action="store_true", dest="show_wind")
+    parser.add_argument('-st', default=0, help="Start time", type=int, dest="start_time_index")
+    parser.add_argument('--hide_pop', help="Hide POP", action="store_true")
 
     if len(sys.argv) < 2:
         parser.print_help()
@@ -49,6 +51,8 @@ def run(argv):
     method.show_wind = args.show_wind
     meteo = yrmeteo.meteogram.Meteogram()
     meteo.debug = args.debug
+    meteo.start_time_index = args.start_time_index
+    meteo.show_pop = not args.hide_pop
 
     # meteo.0plot(input, method, args.lat, args.lon)
     if args.i is not None and args.j is not None:
