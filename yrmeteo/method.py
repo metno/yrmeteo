@@ -265,7 +265,6 @@ class ThomasMethod(Simple):
             if np.round(N) > popI[w] and pop0[t] > 0:
                 I = np.where(precip[t, :] > 0.1)[0]
                 p0[t] = np.nanmedian(precip[t,I])
-                pmin0[t] = np.nanmedian(precip[t,I])
 
         for t in range(0, T):
             t0[t] = np.nanmedian(temperature[t, :])
@@ -278,6 +277,7 @@ class ThomasMethod(Simple):
             #pmax0[t] = precip_max[t]
             pop0[t] = precip_pop[t]
             pmax0[t] = precip_max[t]
+            pmin0[t] = precip_min[t]
         data = dict()
         data["temperature"] = t0
         if temperature_lower is not None and temperature_upper is not None:
