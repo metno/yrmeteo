@@ -109,26 +109,36 @@ class Simple(Method):
         # Instead just repeat the temperature for all neighbourhood points
         temperature = np.repeat(temperature, precip.shape[1]/temperature.shape[1], axis=1)
 
-        x_wind = y_wind = wind_gust = None
+        temperature_lower = None
+        temperature_upper = None
+        if input.has_variable("air_temperature_2m_lower"):
+            temperature_lower = input.get(I, J, "air_temperature_2m_lower", 0, self.members) - 273.15
+            temperature_lower = temperature_lower[0:-1,:]
+            temperature_lower = np.repeat(temperature_lower, precip.shape[1]/temperature_lower.shape[1], axis=1)
+
+        if input.has_variable("air_temperature_2m_upper"):
+            temperature_upper = input.get(I, J, "air_temperature_2m_upper", 0, self.members) - 273.15
+            temperature_upper = temperature_upper[0:-1,:]
+            temperature_upper = np.repeat(temperature_upper, precip.shape[1]/temperature_upper.shape[1], axis=1)
+
+        wind = wind_dir = wind_gust = None
         if self.show_wind:
-            x_wind = input.get(I, J, "x_wind_10m", 0, self.members)
-            x_wind = x_wind[0:-1,:]
-            x_wind = np.repeat(x_wind, precip.shape[1]/x_wind.shape[1], axis=1)
-            y_wind = input.get(I, J, "y_wind_10m", 0, self.members)
-            y_wind = y_wind[0:-1,:]
-            y_wind = np.repeat(y_wind, precip.shape[1]/y_wind.shape[1], axis=1)
-            if input.has_variable("x_wind_gust_10m") and input.has_variable("y_wind_gust_10m"):
-                x_gust = input.get(I, J, "x_wind_gust_10m", 0, self.members)
-                y_gust = input.get(I, J, "y_wind_gust_10m", 0, self.members)
-                wind_gust = np.sqrt(x_gust**2 + y_gust**2)
+            wind = input.get(I, J, "wind_speed_10m", 0, self.members)
+            wind = wind[0:-1,:]
+            wind = np.repeat(wind, precip.shape[1]/wind.shape[1], axis=1)
+            wind_dir = input.get(I, J, "wind_direction_10m", 0, self.members)
+            wind_dir = wind_dir[0:-1,:]
+            wind_dir = np.repeat(wind_dir, precip.shape[1]/wind_dir.shape[1], axis=1)
+            if input.has_variable("wind_speed_of_gust"):
+                wind_gust = input.get(I, J, "wind_speed_of_gust", 0, self.members)
                 wind_gust = wind_gust[0:-1,:]
                 wind_gust = np.repeat(wind_gust, precip.shape[1]/wind_gust.shape[1], axis=1)
 
-        data = self.calc(temperature, precip, precip_min, precip_max, precip_pop, cloud_cover, x_wind, y_wind, wind_gust)
+        data = self.calc(temperature, temperature_lower, temperature_upper, precip, precip_min, precip_max, precip_pop, cloud_cover, wind, wind_dir, wind_gust)
 
         return data
 
-    def calc(self, temperature, precip, precip_min, precip_max, precip_pop, cloud_cover, x_wind=None, y_wind=None, wind_gust=None):
+    def calc(self, temperature, temperature_lower, temperature_upper, precip, precip_min, precip_max, precip_pop, cloud_cover, wind=None, wind_dir=None, wind_gust=None):
         """
         Turn a multi-variate ensemble into deterministic values
 
@@ -154,46 +164,54 @@ class Func(Simple):
 
     Implement func() to make the class work.
     """
-    def calc(self, temperature, precip, precip_min, precip_max, precip_pop, cloud_cover, x_wind=None, y_wind=None, wind_gust=None):
+    def calc(self, temperature, temperature_lower, temperature_upper, precip, precip_min, precip_max, precip_pop, cloud_cover, wind=None, wind_dir=None, wind_gust=None):
         T = temperature.shape[0]
         t0 = np.zeros(T, float)
+        t0_lower = np.zeros(T, float)
+        t0_upper = np.zeros(T, float)
         p0 = np.zeros(T, float)
         c0 = np.zeros(T, float)
         pmin0 = np.zeros(T, float)
         pmax0 = np.zeros(T, float)
         pop0 = np.zeros(T, float)
-        x0 = y0 = g0 = None
-        if x_wind is not None:
-            x0 = np.zeros(T, float)
-        if y_wind is not None:
-            y0 = np.zeros(T, float)
+        w0 = wd0 = g0 = None
+        if wind is not None:
+            w0 = np.zeros(T, float)
+        if wind_dir is not None:
+            wd0 = np.zeros(T, float)
         if wind_gust is not None:
             g0 = np.zeros(T, float)
         for t in range(T):
             t0[t] = self.func(temperature[t, :])
+            if temperature_lower is not None and temperature_upper is not None:
+                t0_lower[t] = self.func(temperature_lower[t, :])
+                t0_upper[t] = self.func(temperature_upper[t, :])
             p0[t] = self.func(precip[t, :])
             c0[t] = self.func(cloud_cover[t, :])
             pmin0[t] = precip_min[t]
             pmax0[t] = precip_max[t]
             pop0[t] = precip_pop[t]
-            if x_wind is not None:
-                x0[t] = self.func(x_wind[t, :])
-            if y_wind is not None:
-                y0[t] = self.func(y_wind[t, :])
+            if wind is not None:
+                w0[t] = self.func(wind[t, :])
+            if wind_dir is not None:
+                wd0[t] = self.func(wind_dir[t, :])
             if wind_gust is not None:
                 g0[t] = self.func(wind_gust[t, :])
 
         data = dict()
         data["temperature"] = t0
+        if temperature_lower is not None and temperature_upper is not None:
+            data["temperature_lower"] = t0_lower
+            data["temperature_upper"] = t0_upper
         data["precip"] = p0
         data["cloud_cover"] = c0
         data["precip_min"] = pmin0
         data["precip_max"] = pmax0
         data["precip_pop"] = pop0
-        if x0 is not None:
-            data["x_wind"] = x0
-        if y0 is not None:
-            data["y_wind"] = y0
+        if w0 is not None:
+            data["wind"] = w0
+        if wd0 is not None:
+            data["wind_dir"] = wd0
         if g0 is not None:
             data["wind_gust"] = g0
 
@@ -225,16 +243,17 @@ class Consensus(Simple):
     """
     Compute symbol, then take the median of those members with the most common symbol
     """
-    def calc(self, temperature, precip, precip_min, precip_max, precip_pop, cloud_cover, x_wind=None, y_wind=None, wind_gust=None):
+    def calc(self, temperature, temperature_lower, temperature_upper, precip, precip_min, precip_max, precip_pop, cloud_cover, x_wind=None, y_wind=None, wind_gust=None):
         T = temperature.shape[0]
         M = temperature.shape[1]
         t0 = np.zeros(T, float)
+        t0_lower = np.zeros(T, float)
+        t0_upper = np.zeros(T, float)
         p0 = np.zeros(T, float)
         c0 = np.zeros(T, float)
         pmin0 = np.zeros(T, float)
         pmax0 = np.zeros(T, float)
         pop0 = np.zeros(T, float)
-        print precip
         for t in range(T):
             cat = np.nan*np.zeros(M, float)
             symbols = np.nan*np.zeros(M, int)
@@ -242,17 +261,22 @@ class Consensus(Simple):
                 if not np.isnan(precip[t, m]) and not np.isnan(cloud_cover[t, m]):
                     symbols[m] = yrmeteo.symbol.get_code(10, precip[t, m], cloud_cover[t, m])
             I = np.where(np.isnan(symbols) == 0)[0]
-            print t, I, symbols
             consensus = np.argmax(np.bincount(symbols[I].astype(int)))
             I = np.where(symbols == consensus)[0]
-            t0[t] = np.nanmedian(temperature[t,I])
-            p0[t] = np.nanmedian(precip[t,I])
-            c0[t] = np.nanmedian(cloud_cover[t,I])
+            t0[t] = np.nanmedian(temperature[t, I])
+            if temperature_lower is not None and temperature_upper is not None:
+                t0_lower[t] = np.nanmedian(temperature_lower[t, I])
+                t0_upper[t] = np.nanmedian(temperature_upper[t, I])
+            p0[t] = np.nanmedian(precip[t, I])
+            c0[t] = np.nanmedian(cloud_cover[t, I])
             pmin0[t] = precip_min[t]
             pmax0[t] = precip_max[t]
             pop0[t] = precip_pop[t]
         data = dict()
         data["temperature"] = t0
+        if temperature_lower is not None and temperature_upper is not None:
+            data["temperature_lower"] = t0_lower
+            data["temperature_upper"] = t0_upper
         data["precip"] = p0
         data["cloud_cover"] = c0
         data["precip_min"] = pmin0
@@ -263,7 +287,7 @@ class Consensus(Simple):
 
 
 class ConsensusPrecip(Simple):
-    def calc(self, temperature, precip, precip_min, precip_max, precip_pop, cloud_cover, x_wind=None, y_wind=None, wind_gust=None):
+    def calc(self, temperature, temperature_lower, temperature_upper, precip, precip_min, precip_max, precip_pop, cloud_cover, x_wind=None, y_wind=None, wind_gust=None):
         """
         Find the most common number of drops (in symbol) and take the median of the
         members with this number of drops.
@@ -313,7 +337,7 @@ class BestMember(Simple):
     def __init__(self, window_size=6):
         self.window_size = window_size
 
-    def calc(self, temperature, precip, precip_min, precip_max, precip_pop, cloud_cover, x_wind=None, y_wind=None, wind_gust=None):
+    def calc(self, temperature, temperature_lower, temperature_upper, precip, precip_min, precip_max, precip_pop, cloud_cover, x_wind=None, y_wind=None, wind_gust=None):
         T = temperature.shape[0]
         M = temperature.shape[1]
         t0 = np.zeros(T, float)
@@ -429,7 +453,15 @@ class IvarsMethod(Simple):
         """ Temperature: Use the control """
         temperature_control = input.get(I, J, "air_temperature_2m", 0, control_member) - 273.15
         data["temperature"] = temperature_control[0:-1,0]
-
+        print "HAS?"
+        if input.has_variable("air_temperature_2m_lower"):
+            print "HAS"
+            temperature_lower = input.get(I, J, "air_temperature_2m_lower", 0, control_member) - 273.15
+            data["temperature_lower"] = temperature_lower[0:-1,0]
+        if input.has_variable("air_temperature_2m_upper"):
+            print "HAS"
+            temperature_upper = input.get(I, J, "air_temperature_2m_upper", 0, control_member) - 273.15
+            data["temperature_upper"] = temperature_upper[0:-1,0]
 
         if self.show_wind:
             x_wind_ens = input.get(I, J, "x_wind_ens_10m", 0, self.members)

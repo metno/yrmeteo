@@ -38,8 +38,18 @@ class Meteogram(object):
                 ax.xaxis.set_minor_formatter(mpldates.DateFormatter('%H'))
             else:
                 ax.xaxis.set_ticklabels([])
-            ax.xaxis.grid(True, which='major', color=gray, zorder=3, linestyle='-', linewidth=2)
-            ax.xaxis.grid(True, which='minor', color=gray, zorder=2, linestyle='-', lw=1)
+            ax.xaxis.grid(True, which='major', color=gray, zorder=3, linestyle='-', linewidth=1)
+            ax.xaxis.grid(True, which='minor', color=gray, zorder=2, linestyle='-', lw=0.5)
+
+            # Only show even numbered hours
+            """
+            print ax.get_xminorticklabels()[0]
+            for n, tick in enumerate(ax.xaxis.get_minor_ticks()):
+                offset = 0
+                if (n+offset) % 2 == 0:
+                    print "remove"
+                    tick.label1.set_visible(False)
+            """
 
             # Align labels. For some strange reason, this does not work if the code is placed outside
             # this if/else block...
@@ -72,7 +82,6 @@ class Meteogram(object):
                 else:
                     tick.label1.set_horizontalalignment("left")
 
-
     def adjust_yaxis(self, ax=None, show_tick_labels=True):
         if ax is None:
             ax = mpl.gca()
@@ -87,13 +96,15 @@ class Meteogram(object):
 
 
     def plot(self, times, data):
-        show_wind = "x_wind" in data and "y_wind" in data
+        show_wind = "wind" in data and "wind_dir" in data
         show_pop = True
         """
         Plot temperature
         """
         temperature = data["temperature"]
         ax1 = mpl.gca() # fig.axes([0.125, 0.1, 0.8, 0.8])
+        ax1.set_zorder(1)
+        ax1.patch.set_alpha(0)
         ax1.set_position([0.05, 0.20, 0.9, 0.7])
         Iwarm = np.where(temperature >= 0)[0]
         Tcold = copy.deepcopy(temperature)
@@ -102,6 +113,11 @@ class Meteogram(object):
         ax1.plot(times, Tcold, '-', color=darkblue, lw=2, zorder=3)
         ax1.set_xlim([ax1.get_xlim()[0], np.max(times)])
         ax1.set_xlim([np.min(times), np.max(times)])
+        if "temperature_lower" in data and "temperature_upper" in data:
+            # ax1.plot(times, data["temperature_lower"], '-', color=red, lw=2, zorder=3)
+            # ax1.plot(times, data["temperature_upper"], '-', color=red, lw=2, zorder=3)
+            ax1.fill(np.concatenate((times, times[::-1])), np.concatenate((data["temperature_lower"],
+               data["temperature_upper"][::-1])), color='r', alpha=0.2, linewidth=0)
 
         """
         Plot symbols
@@ -137,7 +153,6 @@ class Meteogram(object):
                         if pop > 0:
                             ax1.text(times[t], temperature[t] + dy/30, "%d%%" % (pop),
                             horizontalalignment='center', fontsize=10)
-                        print precip_pop[t]*100, precip_max[t]
         self.adjust_xaxis(ax1, False)
         self.adjust_yaxis(ax1, False)
 
@@ -148,11 +163,12 @@ class Meteogram(object):
         Plot precipitation
         """
         ax2 = ax1.twinx()
+        ax2.set_zorder(0)
         ax2.set_position(ax1.get_position())
         precip[precip < 0.1] = 0
         if precip_max is not None:
             precip_max[precip_max < 0.1] = 0
-            ax2.bar(times+0.1/24, precip_max, 0.95*dlt, color="white", ec=blue, hatch="//////", lw=0)
+            ax2.bar(times+0.1/24, precip_max, 0.95*dlt, color="white", ec=blue, hatch="//////", lw=0, zorder=0)
             for t in range(len(times)):
                 if not np.isnan(precip_max[t]) and precip_max[t] > 0.1:
                     mpl.text(times[t]+dlt/2.0, precip_max[t], "%0.1f" % precip_max[t], fontsize=6,
@@ -160,7 +176,7 @@ class Meteogram(object):
         main_blue_bar = precip
         if precip_min is not None:
             main_blue_bar = precip_min
-        ax2.bar(times+0.1/24, main_blue_bar, 0.95*dlt, color=blue, lw=0)
+        ax2.bar(times+0.1/24, main_blue_bar, 0.95*dlt, color=blue, lw=0, zorder=0)
         #ax2.set_ylabel("Precipitation (mm)")
         #ax2.set_xticks([])
         lim = [0, 10]
@@ -181,39 +197,38 @@ class Meteogram(object):
         Plot winds
         """
         if show_wind:
-            x_wind = data["x_wind"]
-            y_wind = data["y_wind"]
+            wind = data["wind"]
+            wind_dir = data["wind_dir"]
             pos = ax1.get_position()
             ax_wind = mpl.axes([pos.x0, 0.05, pos.x1-pos.x0, 0.12])
             xlim = ax1.get_xlim()
             ax_wind.set_xlim(xlim)
             # s = (xlim[1] - xlim[0]) / fig_size[0] * (pos.x1-pos.x0) * (fig_size[1] * (0.05)) * 2 * 12
             # Don't deal with scale here. Just assume the axis is set up with the right aspect.
-            max_y = 1.0 / 24 #(xlim[1] - xlim[0]) / fig_size[0] * (pos.x1-pos.x0) * (fig_size[1] * (0.05)) * 2 * 12
+            max_y = 0.95*1.0 / 24 #(xlim[1] - xlim[0]) / fig_size[0] * (pos.x1-pos.x0) * (fig_size[1] * (0.05)) * 2 * 12
             ylim = [-max_y*2, max_y*1.2]
             ax_wind.set_ylim(ylim)
-            for i in range(1, len(times), 2):
+            start_even_hour = int(times[0]*24) % 2 == 0
+            print times[0]
+            print start_even_hour
+            start_time_index = 2 - start_even_hour
+            for i in range(start_time_index, len(times), 2):
                 time = times[i]
-                speed = np.sqrt(x_wind[i]**2 + y_wind[i]**2)
-                # dir = np.arctan(x_wind[i],y_wind[i]**2)
-                x_scale = max_y
-                y_scale = max_y
-                dx = x_wind[i] / speed * x_scale
-                dy = y_wind[i] / speed * y_scale
+                dir = wind_dir[i]
+                dx = -max_y * np.sin(dir / 180 * 3.14159265)
+                dy = -max_y * np.cos(dir / 180 * 3.14159265)
                 hl = 0.0125
                 # Arrow puts the head at the end of the line, so rescale the line to be slightly shorter
                 hlx = (2.0/24 - hl)/(2.0/24)
                 ax_wind.arrow(time - dx, -dy, 2*dx*hlx, 2*dy*hlx, head_width=0.01, head_length=hl, fc='k', ec='k', zorder=10)
                 # ax_wind.arrow(time - dx, -dy, 2*dx-hl, 2*dy-hl, head_width=0.01, head_length=0, fc='k', ec='k', zorder=10)
                 # ax_wind.plot([time - dx, time + dx], [-dy, dy], '.-', lw=1)
-                wind = None
-                if not np.isnan(x_wind[i]):
-                    wind = np.sqrt(x_wind[i]**2 + y_wind[i]**2)
-                if "gust" in data and not np.isnan(data["gust"][i]):
-                    text = "%1.0f-%1.0f" % (wind, data["gust"][i])
-                else:
-                    text = "%0.1f" % wind
-                ax_wind.text(times[i], ylim[0]*0.95, text, fontsize=6, horizontalalignment="center", color="k", verticalalignment="bottom")
+                if not np.isnan(wind[i]):
+                    if "wind_gust" in data and not np.isnan(data["wind_gust"][i]):
+                        text = "%1.0f-%1.0f" % (wind[i], data["wind_gust"][i])
+                    else:
+                        text = "%0.1f" % wind[i]
+                    ax_wind.text(times[i], ylim[0]*0.95, text, fontsize=8, horizontalalignment="center", color="k", verticalalignment="bottom")
 
                 self.adjust_xaxis(ax_wind)
                 ax_wind.set_yticks([])
