@@ -180,6 +180,7 @@ class Meteogram(object):
         if precip_min is not None:
             main_blue_bar = precip_min
         ax2.bar(times+0.1/24, main_blue_bar, 0.95*dlt, color=blue, lw=0, zorder=0)
+        ax2.plot(times+0.5/24, precip, '_', color="blue", ms=8, lw=0, zorder=10)
         #ax2.set_ylabel("Precipitation (mm)")
         #ax2.set_xticks([])
         lim = [0, 10]
